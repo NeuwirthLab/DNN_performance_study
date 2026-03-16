@@ -1,7 +1,7 @@
 # Performance Analysis of Deep Learning Models: ResNet-50
-A C++/CUDA implementation of the ResNet-50 architecture. This project is built to benchmark, profile, and deeply analyze deep learning training performance on High-Performance Computing (HPC) clusters utilizing modern NVIDIA GPUs.
+A C++/CUDA implementation of the ResNet-50 architecture. This project is built to benchmark, profile, and deeply analyze deep learning training performance on High-Performance Computing (HPC) clusters utilizing NVIDIA and AMD GPUs.
 
-This performance analysis is comparing programming in cuda vs a pytorch implementation, this repository serves as an educational and profiling testbed to deeply understand GPU utilization, memory bandwidth bottlenecks, and Tensor Core utilization.
+This performance analysis is comparing implementation in CUDA vs PyTorch across different GPUs, working as a profiling testbed to understand GPU utilization, memory bandwidth bottlenecks, and Tensor Core utilization.( To be inclusded soon)
 
 ## 🚀 Key Features
 
