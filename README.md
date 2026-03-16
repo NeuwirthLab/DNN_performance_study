@@ -3,6 +3,8 @@ A C++/CUDA implementation of the ResNet-50 architecture. This project is built t
 
 This performance analysis is comparing implementation in CUDA vs PyTorch across different GPUs, working as a profiling testbed to understand GPU utilization, memory bandwidth bottlenecks, and Tensor Core utilization.( To be inclusded soon)
 
+> **Note:** A very known issue is having problems with Libtorch compatibility. For that, look into the architecture you want to build it on using libtorch, and check the correct versions at the [PyTorch installation page](https://pytorch.org/get-started/locally/).
+
 ## 🚀 Key Features
 
 *   **Pure C++/CUDA Implementation:** Core neural network logic is implemented directly using the `cuDNN` API (for convolutions, batch norm, and pooling) and `cuBLAS` (for fully connected layers).
