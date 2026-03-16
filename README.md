@@ -1,8 +1,7 @@
 # Performance Analysis of Deep Learning Models: ResNet-50
+A C++/CUDA implementation of the ResNet-50 architecture. This project is built to benchmark, profile, and deeply analyze deep learning training performance on High-Performance Computing (HPC) clusters utilizing modern NVIDIA GPUs.
 
-A bare-metal, highly optimized C++/CUDA implementation of the ResNet-50 architecture. This project is built from scratch to benchmark, profile, and deeply analyze deep learning training performance on High-Performance Computing (HPC) clusters (such as NHR@FAU Helma) utilizing modern NVIDIA GPUs like the H100.
-
-By stripping away the overhead of high-level frameworks like PyTorch or TensorFlow, this repository serves as an educational and profiling testbed to deeply understand GPU utilization, memory bandwidth bottlenecks, and Tensor Core utilization.
+This performance analysis is comparing programming in cuda vs a pytorch implementation, this repository serves as an educational and profiling testbed to deeply understand GPU utilization, memory bandwidth bottlenecks, and Tensor Core utilization.
 
 ## 🚀 Key Features
 
@@ -77,3 +76,7 @@ Two robust SLURM scripts are provided to dispatch jobs to a cluster scheduler.
 
 ## 📫 Acknowledgments
 Developed for performance analysis and profiling of Deep Learning workloads on the NHR@FAU Helma cluster.
+
+
+## Future works
+This implementation is being tested with Imagenet1k, having appx. 1.2M training images and 50k validation images. Heavily utilising the GPUs.  
