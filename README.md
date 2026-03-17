@@ -54,11 +54,18 @@ unzip tiny-imagenet-200.zip
 **For ImageNet-1k:**
 The highest performance, natively supported structure for C++ DataLoaders is the raw JPEG folder hierarchy. The easiest way to get this on an HPC is via **Kaggle**:
 1. Make sure your `kaggle.json` API token is inside `~/.kaggle/kaggle.json`.
+   > **Note:** If `~/.kaggle` does not work on your HPC, export your credentials directly in your run session:
+   > `export KAGGLE_USERNAME="your_username" && export KAGGLE_KEY="your_api_key"`
 2. Run the following:
 ```bash
 pip install kaggle
 mkdir -p imagenet && cd imagenet
 kaggle competitions download -c imagenet-object-localization-challenge
+
+# ⚠️ Troubleshooting: If you get "bash: kaggle: command not found" on your HPC,
+# run the python module directly instead of the kaggle CLI wrapper:
+# python -m kaggle competitions download -c imagenet-object-localization-challenge
+
 unzip imagenet-object-localization-challenge.zip
 mv ILSVRC/Data/CLS-LOC/train .
 mv ILSVRC/Data/CLS-LOC/val .
