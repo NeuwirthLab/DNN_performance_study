@@ -135,23 +135,15 @@ if(USE_NCCL)
         message(STATUS "NCCL library  : ${NCCL_LIB}")
         message(STATUS "NCCL include  : ${NCCL_INCLUDE}")
 
-        # Add definitions and includes to the shared library and the new target
-        target_compile_definitions(resnet50_lib PUBLIC USE_NCCL)
-        target_include_directories(resnet50_lib PUBLIC ${NCCL_INCLUDE})
-        target_link_libraries(resnet50_lib PUBLIC ${NCCL_LIB})
-
-        # resnet50_lib is compiled with USE_NCCL so SyncGradients calls ncclAllReduce.
-        # Explicitly link libnccl to every executable — transitive propagation from
-        # a STATIC library is not always reliable across CMake/linker versions.
-        foreach(_tgt main train train_tinyimagenet train_imagenet benchmark train_bench)
-            target_link_libraries(${_tgt} PRIVATE ${NCCL_LIB})
-        endforeach()
-
-        add_executable(train_multigpu train_multigpu.cu)
+        # train_multigpu recompiles resnet50.cu directly with USE_NCCL defined,
+        # so SyncGradients (guarded by #ifdef USE_NCCL in resnet50.cu) is compiled in.
+        # resnet50_lib stays NCCL-free → single-GPU targets never see ncclAllReduce.
+        add_executable(train_multigpu train_multigpu.cu resnet50.cu)
         target_compile_definitions(train_multigpu PRIVATE USE_NCCL)
-        target_include_directories(train_multigpu PRIVATE ${NCCL_INCLUDE})
+        target_include_directories(train_multigpu PRIVATE
+            ${NCCL_INCLUDE} ${CUDNN_INCLUDE_DIR} ${TORCH_INCLUDE_DIRS})
         target_link_libraries(train_multigpu PRIVATE
-            resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} ${NCCL_LIB})
+            CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} ${NCCL_LIB})
 
         message(STATUS "Multi-GPU DDP target 'train_multigpu' enabled.")
     else()
