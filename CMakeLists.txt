@@ -114,12 +114,14 @@ if(USE_NCCL)
         HINTS
             ${CUDAToolkit_LIBRARY_DIR}
             $ENV{NCCL_HOME}/lib
+            $ENV{EBROOTNCCL}/lib
             /usr/local/cuda/lib64
     )
     find_path(NCCL_INCLUDE nccl.h
         HINTS
             ${CUDAToolkit_INCLUDE_DIRS}
             $ENV{NCCL_HOME}/include
+            $ENV{EBROOTNCCL}/include
             /usr/local/cuda/include
     )
 

@@ -1,4 +1,4 @@
- * train_imagenet.cu  –  ResNet-50 training loop on ImageNet-1k
+﻿ * train_imagenet.cu  -  ResNet-50 training loop on ImageNet-1k
  *
  * Features:
  *   - Validation evaluation after each epoch
