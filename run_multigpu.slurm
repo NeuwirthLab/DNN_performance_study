@@ -19,8 +19,8 @@ module load gcc/11.2.0
 module load cuda/12.6.2
 module load cudnn/9.8.0.87-12
 module load cmake/3.26
-# NCCL is typically bundled with the CUDA module on modern HPC clusters.
-# If not, add: module load nccl
+# NCCL is typically bundled with the CUDA module, but if not found, load it:
+module load nccl 2>/dev/null || echo "NCCL module not found, relying on system paths..."
 
 echo "=== Environment ==="
 nvcc --version
@@ -51,10 +51,19 @@ echo "Using CUDA architecture: sm_${ARCH}"
 # 5. Compile with NCCL enabled
 echo "=== Compiling with NCCL... ==="
 rm -rf build && mkdir -p build && cd build
+
+# Try to find NCCL path if not in standard locations
+NCCL_ROOT_DIR=""
+if [ -n "$NCCL_HOME" ]; then NCCL_ROOT_DIR="$NCCL_HOME"
+elif [ -n "$NCCL_ROOT" ]; then NCCL_ROOT_DIR="$NCCL_ROOT"
+elif [ -d "/usr/local/nccl" ]; then NCCL_ROOT_DIR="/usr/local/nccl"
+fi
+
 cmake .. \
     -DCMAKE_CUDA_ARCHITECTURES="${ARCH}" \
     -DUSE_NCCL=ON \
-    ${CUDNN_PATH:+-DCUDNN_PATH="${CUDNN_PATH}"}
+    ${CUDNN_PATH:+-DCUDNN_PATH="${CUDNN_PATH}"} \
+    ${NCCL_ROOT_DIR:+-DNCCL_ROOT="${NCCL_ROOT_DIR}"}
 make -j"$(nproc)"
 cd ..
 

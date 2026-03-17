@@ -1,5 +1,5 @@
 /*
- * train_multigpu.cu  –  ResNet-50 single-node multi-GPU DDP training
+ * train_multigpu.cu  -  ResNet-50 single-node multi-GPU DDP training
  *
  * Strategy: Data Parallel via NCCL AllReduce
  *   - Each GPU holds a full copy of ResNet50.
