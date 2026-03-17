@@ -18,6 +18,9 @@
 #include <cudnn.h>
 #include <cuda_runtime.h>
 #include <nvtx3/nvToolsExt.h>
+#ifdef USE_NCCL
+#include <nccl.h>
+#endif
 #include <vector>
 #include <stdexcept>
 #include <string>
@@ -284,6 +287,11 @@ public:
 
     bool SaveWeights(const std::string& path) const;
     bool LoadWeights(const std::string& path);
+
+#ifdef USE_NCCL
+    // Multi-GPU: average all gradient buffers across devices using NCCL AllReduce
+    void SyncGradients(ncclComm_t comm, cudaStream_t stream);
+#endif
 
     cublasHandle_t Cublas() const { return cublas_; }
     cudnnHandle_t  Cudnn()  const { return cudnn_;  }

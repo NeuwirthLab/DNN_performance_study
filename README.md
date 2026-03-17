@@ -54,8 +54,6 @@ unzip tiny-imagenet-200.zip
 **For ImageNet-1k:**
 The highest performance, natively supported structure for C++ DataLoaders is the raw JPEG folder hierarchy. The easiest way to get this on an HPC is via **Kaggle**:
 1. Make sure your `kaggle.json` API token is inside `~/.kaggle/kaggle.json`.
-   > **Note:** If `~/.kaggle` does not work on your HPC, export your credentials directly in your run session:
-   > `export KAGGLE_USERNAME="your_username" && export KAGGLE_KEY="your_api_key"`
 2. Run the following:
 ```bash
 pip install kaggle
@@ -98,7 +96,7 @@ Two robust SLURM scripts are provided to dispatch jobs to a cluster scheduler.
 *   `profile_resnet.slurm`: Deployment script tuned for Nsight Systems hardware profiling.
 
 ## 📫 Acknowledgments
-Developed for performance analysis and profiling of Deep Learning workloads on the NHR@FAU Helma cluster.
+Developed for performance analysis and profiling of Deep Learning workloads on the using NHR's GPU
 
 
 ## Future works

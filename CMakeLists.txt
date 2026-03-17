@@ -105,3 +105,38 @@ target_link_libraries(benchmark PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} ${
 # ── Training benchmark ────────────────────────────────────────────────────────
 add_executable(train_bench train_bench.cu)
 target_link_libraries(train_bench PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES})
+
+# ── Multi-GPU DDP training (requires NCCL) ────────────────────────────────────
+# Enable with:  cmake -DUSE_NCCL=ON ..
+option(USE_NCCL "Build the multi-GPU DDP training binary using NCCL" OFF)
+if(USE_NCCL)
+    find_library(NCCL_LIB nccl
+        HINTS
+            ${CUDAToolkit_LIBRARY_DIR}
+            $ENV{NCCL_HOME}/lib
+            /usr/local/cuda/lib64
+    )
+    find_path(NCCL_INCLUDE nccl.h
+        HINTS
+            ${CUDAToolkit_INCLUDE_DIRS}
+            $ENV{NCCL_HOME}/include
+            /usr/local/cuda/include
+    )
+
+    if(NCCL_LIB AND NCCL_INCLUDE)
+        message(STATUS "NCCL library  : ${NCCL_LIB}")
+        message(STATUS "NCCL include  : ${NCCL_INCLUDE}")
+
+        add_executable(train_multigpu train_multigpu.cu)
+        target_compile_definitions(train_multigpu PRIVATE USE_NCCL)
+        target_compile_definitions(resnet50_lib PUBLIC USE_NCCL)
+        target_include_directories(train_multigpu PRIVATE ${NCCL_INCLUDE})
+        target_link_libraries(train_multigpu PRIVATE
+            resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} ${NCCL_LIB})
+
+        message(STATUS "Multi-GPU DDP target 'train_multigpu' enabled.")
+    else()
+        message(WARNING "USE_NCCL=ON but nccl.h / libnccl not found. Skipping train_multigpu target.")
+    endif()
+endif()
+

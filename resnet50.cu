@@ -1498,3 +1498,42 @@ bool ResNet50::LoadWeights(const std::string& path)
         return false;
     }
 }
+
+#ifdef USE_NCCL
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-GPU gradient synchronization via NCCL
+// Call this after Backward(), before UpdateSGD().
+// ─────────────────────────────────────────────────────────────────────────────
+
+static void allreduce_conv(ConvBnLayer* c, ncclComm_t comm, cudaStream_t stream) {
+    size_t wn = (size_t)c->OutC() * c->InC() * c->KH() * c->KW();
+    ncclAllReduce(c->dWeight(),  c->dWeight(),  wn,        ncclFloat, ncclAvg, comm, stream);
+    ncclAllReduce(c->dBnScale(), c->dBnScale(), c->OutC(), ncclFloat, ncclAvg, comm, stream);
+    ncclAllReduce(c->dBnBias(),  c->dBnBias(),  c->OutC(), ncclFloat, ncclAvg, comm, stream);
+}
+
+static void allreduce_block(BottleneckBlock* b, ncclComm_t comm, cudaStream_t stream) {
+    allreduce_conv(b->Conv1(), comm, stream);
+    allreduce_conv(b->Conv2(), comm, stream);
+    allreduce_conv(b->Conv3(), comm, stream);
+    if (b->HasProj()) allreduce_conv(b->Proj(), comm, stream);
+}
+
+void ResNet50::SyncGradients(ncclComm_t comm, cudaStream_t stream) {
+    // FC layer
+    ncclAllReduce(d_dfc_w_, d_dfc_w_, (size_t)num_classes_ * 2048, ncclFloat, ncclAvg, comm, stream);
+    ncclAllReduce(d_dfc_b_, d_dfc_b_, (size_t)num_classes_,        ncclFloat, ncclAvg, comm, stream);
+
+    // Stage 0
+    allreduce_conv(conv1_, comm, stream);
+
+    // Residual stages
+    for (auto* b : layer1_) allreduce_block(b, comm, stream);
+    for (auto* b : layer2_) allreduce_block(b, comm, stream);
+    for (auto* b : layer3_) allreduce_block(b, comm, stream);
+    for (auto* b : layer4_) allreduce_block(b, comm, stream);
+
+    // Synchronize the stream so all AllReduce operations complete before UpdateSGD
+    cudaStreamSynchronize(stream);
+}
+#endif // USE_NCCL
