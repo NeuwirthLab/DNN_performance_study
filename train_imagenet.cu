@@ -1,4 +1,4 @@
-﻿ * train_imagenet.cu  -  ResNet-50 training loop on ImageNet-1k
+/* train_imagenet.cu - ResNet-50 training loop on ImageNet-1k */
  *
  * Features:
  *   - Validation evaluation after each epoch
@@ -13,10 +13,11 @@
  *   ./train_tinyimagenet [data_dir] [batch_size] [num_epochs] [learning_rate]
  *
  * Compile:
- *   nvcc -O2 -arch=sm_75 -std=c++17 train_tinyimagenet.cu resnet50.cu -o train_tinyimagenet -lcublas -lcudnn
+ *   nvcc -O2 -arch=sm_75 -std=c++17 train_imagenet.cu resnet50.cu -o train_imagenet -lcublas -lcudnn
  */
 
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "imagenet_loader.h"
 #include "resnet50.cuh"
 #include <iostream>
@@ -49,7 +50,7 @@ static float cosine_lr(float base_lr, int epoch, int num_epochs, int warmup_epoc
 }
 
 // ── Validation loop ──────────────────────────────────────────────────────────
-static void evaluate(ResNet50& model, TinyImageNetLoader& val_loader,
+static void evaluate(ResNet50& model, ImageNetLoader& val_loader,
                      float* d_images, int* d_labels, int batch_size,
                      float& out_loss, float& out_acc)
 {

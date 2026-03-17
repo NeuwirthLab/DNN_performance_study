@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # You can override this from the command line: cmake -DCMAKE_CUDA_ARCHITECTURES=80 ..
 # (e.g., 90 for H100, 80 for A100, 70 for V100, 89 for RTX 500/4090)
 set(CMAKE_CUDA_ARCHITECTURES "90" CACHE STRING "CUDA architecture")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -diag-suppress=170,177,550,1675")
 
 # LibTorch and NVTX requirements
 set(CMAKE_CXX_STANDARD 17)
@@ -109,36 +109,49 @@ target_link_libraries(train_bench PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} 
 # ── Multi-GPU DDP training (requires NCCL) ────────────────────────────────────
 # Enable with:  cmake -DUSE_NCCL=ON ..
 option(USE_NCCL "Build the multi-GPU DDP training binary using NCCL" OFF)
+
 if(USE_NCCL)
-    find_library(NCCL_LIB nccl
-        HINTS
-            ${CUDAToolkit_LIBRARY_DIR}
-            $ENV{NCCL_HOME}/lib
-            $ENV{EBROOTNCCL}/lib
-            /usr/local/cuda/lib64
-    )
-    find_path(NCCL_INCLUDE nccl.h
-        HINTS
-            ${CUDAToolkit_INCLUDE_DIRS}
-            $ENV{NCCL_HOME}/include
-            $ENV{EBROOTNCCL}/include
-            /usr/local/cuda/include
-    )
+    # 1. Prioritize variables passed from command line (-DNCCL_LIB=... -DNCCL_INCLUDE=...)
+    if(NOT NCCL_LIB OR NOT NCCL_INCLUDE)
+        find_library(NCCL_LIB nccl
+            HINTS
+                ${CUDAToolkit_LIBRARY_DIR}
+                $ENV{NCCL_HOME}/lib
+                $ENV{EBROOTNCCL}/lib
+                $ENV{NVHPC_ROOT}/Linux_x86_64/$ENV{NVHPC_VERSION}/comm_libs/nccl/lib
+                /usr/local/cuda/lib64
+        )
+        find_path(NCCL_INCLUDE nccl.h
+            HINTS
+                ${CUDAToolkit_INCLUDE_DIRS}
+                $ENV{NCCL_HOME}/include
+                $ENV{EBROOTNCCL}/include
+                $ENV{NVHPC_ROOT}/Linux_x86_64/$ENV{NVHPC_VERSION}/comm_libs/nccl/include
+                /usr/local/cuda/include
+        )
+    endif()
 
     if(NCCL_LIB AND NCCL_INCLUDE)
         message(STATUS "NCCL library  : ${NCCL_LIB}")
         message(STATUS "NCCL include  : ${NCCL_INCLUDE}")
 
+        # Add definitions and includes to the shared library and the new target
+        target_compile_definitions(resnet50_lib PUBLIC USE_NCCL)
+        target_include_directories(resnet50_lib PUBLIC ${NCCL_INCLUDE})
+        # Link NCCL to resnet50_lib as PUBLIC so all dependents (main, train,
+        # benchmark, etc.) transitively get libnccl and can resolve ncclAllReduce
+        target_link_libraries(resnet50_lib PUBLIC ${NCCL_LIB})
+
         add_executable(train_multigpu train_multigpu.cu)
         target_compile_definitions(train_multigpu PRIVATE USE_NCCL)
-        target_compile_definitions(resnet50_lib PUBLIC USE_NCCL)
         target_include_directories(train_multigpu PRIVATE ${NCCL_INCLUDE})
         target_link_libraries(train_multigpu PRIVATE
             resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} ${NCCL_LIB})
 
         message(STATUS "Multi-GPU DDP target 'train_multigpu' enabled.")
     else()
-        message(WARNING "USE_NCCL=ON but nccl.h / libnccl not found. Skipping train_multigpu target.")
+        message(FATAL_ERROR "USE_NCCL=ON but nccl.h or libnccl not found. \n"
+                "Please provide -DNCCL_INCLUDE=/path/to/inc -DNCCL_LIB=/path/to/libnccl.so")
     endif()
 endif()
 

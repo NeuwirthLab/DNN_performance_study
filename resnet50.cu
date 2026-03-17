@@ -195,7 +195,7 @@ static void launch_relu(float* d, int n)
 #pragma warning(push)
 #pragma warning(disable: 4505) // unreferenced local function
 #endif
-static void launch_zero(float* d, int n)
+[[maybe_unused]] static void launch_zero(float* d, int n)
 {
     int blk = 256, grd = (n + blk - 1) / blk;
     zero_kernel<<<grd, blk>>>(d, n);

@@ -15,12 +15,12 @@
 
 # 1. Load modules
 module purge
-module load gcc/11.2.0
+
 module load cuda/12.6.2
 module load cudnn/9.8.0.87-12
-module load cmake/3.26
-# NCCL is typically bundled with the CUDA module, but if not found, load it:
-module load nccl 2>/dev/null || echo "NCCL module not found, relying on system paths..."
+module load cmake
+# Load nvhpc — it bundles NCCL under its comm_libs directory
+module load nvhpc
 
 echo "=== Environment ==="
 nvcc --version
@@ -32,12 +32,13 @@ cd "$SLURM_SUBMIT_DIR"
 
 # 3. Auto-detect cuDNN path
 CUDNN_PATH=""
-for search_dir in /usr/local/cuda /usr/local /usr "$CUDA_HOME" "$EBROOTCUDNN" "$CUDNN_ROOT"; do
+for search_dir in "$EBROOTCUDNN" "$CUDNN_ROOT" "$CUDA_HOME" /usr/local/cuda /usr/local /usr; do
     if [ -n "$search_dir" ] && [ -f "$search_dir/include/cudnn.h" ]; then
         CUDNN_PATH="$search_dir"
         break
     fi
 done
+echo "cuDNN path : ${CUDNN_PATH:-not found}"
 
 # 4. Detect GPU architecture
 GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)
@@ -48,22 +49,59 @@ elif echo "$GPU_NAME" | grep -qi "V100"; then ARCH=70
 else ARCH=80; fi
 echo "Using CUDA architecture: sm_${ARCH}"
 
-# 5. Compile with NCCL enabled
+# 5. Locate NCCL — hardcoded Helma SPACK path + fallbacks
+echo ""
+echo "=== Locating NCCL ==="
+
+# Standalone SPACK NCCL 2.22.3 on NHR FAU Helma (CUDA 12 compatible)
+NCCL_SPACK_ROOT="/apps/SPACK/0.23.0/opt/linux-almalinux9-x86_64_v4/gcc-11.4.1/nccl-2.22.3-1-eu6kb6f7p3xfp7py2fgc7q4vodhmt2yw"
+# nvhpc bundled NCCL for CUDA 12.6 (fallback)
+NCCL_NVHPC_ROOT="/apps/SPACK/0.23.0/opt/linux-almalinux9-x86_64_v4/gcc-11.4.1/nvhpc-24.11-obaxxxcjmxuc4sx2lt2ljfn56ci3f7zt/Linux_x86_64/24.11/comm_libs/12.6/nccl"
+
+NCCL_ROOT_DIR=""
+for candidate in \
+    "$NCCL_SPACK_ROOT" \
+    "$NCCL_NVHPC_ROOT" \
+    "$EBROOTNCCL" \
+    "$NCCL_HOME" \
+    "$NCCL_ROOT"
+do
+    if [ -n "$candidate" ] && [ -f "$candidate/include/nccl.h" ]; then
+        NCCL_ROOT_DIR="$candidate"
+        break
+    fi
+done
+
+if [ -z "$NCCL_ROOT_DIR" ]; then
+    echo "ERROR: NCCL not found. Expected at: $NCCL_SPACK_ROOT"
+    exit 1
+fi
+
+NCCL_INC_PATH="${NCCL_ROOT_DIR}/include"
+NCCL_LIB_PATH=$(ls "${NCCL_ROOT_DIR}/lib/libnccl.so" \
+                    "${NCCL_ROOT_DIR}/lib64/libnccl.so" 2>/dev/null | head -1)
+
+echo "NCCL root    : ${NCCL_ROOT_DIR}"
+echo "NCCL include : ${NCCL_INC_PATH}"
+echo "NCCL library : ${NCCL_LIB_PATH}"
+
+if [ -z "$NCCL_LIB_PATH" ]; then
+    echo "ERROR: libnccl.so not found under ${NCCL_ROOT_DIR}/lib[64]"
+    exit 1
+fi
+
+# 6. Compile with NCCL
+echo ""
 echo "=== Compiling with NCCL... ==="
 rm -rf build && mkdir -p build && cd build
-
-# Try to find NCCL path if not in standard locations
-NCCL_ROOT_DIR=""
-if [ -n "$NCCL_HOME" ]; then NCCL_ROOT_DIR="$NCCL_HOME"
-elif [ -n "$NCCL_ROOT" ]; then NCCL_ROOT_DIR="$NCCL_ROOT"
-elif [ -d "/usr/local/nccl" ]; then NCCL_ROOT_DIR="/usr/local/nccl"
-fi
 
 cmake .. \
     -DCMAKE_CUDA_ARCHITECTURES="${ARCH}" \
     -DUSE_NCCL=ON \
-    ${CUDNN_PATH:+-DCUDNN_PATH="${CUDNN_PATH}"} \
-    ${NCCL_ROOT_DIR:+-DNCCL_ROOT="${NCCL_ROOT_DIR}"}
+    -DNCCL_LIB="${NCCL_LIB_PATH}" \
+    -DNCCL_INCLUDE="${NCCL_INC_PATH}" \
+    ${CUDNN_PATH:+-DCUDNN_PATH="${CUDNN_PATH}"}
+
 make -j"$(nproc)"
 cd ..
 

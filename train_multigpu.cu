@@ -40,6 +40,16 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+// ── NCCL error-checking macro ─────────────────────────────────────────────────
+#define NCCL_CHECK(cmd) do {                                        \
+    ncclResult_t _r = (cmd);                                        \
+    if (_r != ncclSuccess) {                                        \
+        fprintf(stderr, "NCCL error at %s:%d — %s\n",              \
+                __FILE__, __LINE__, ncclGetErrorString(_r));         \
+        exit(EXIT_FAILURE);                                         \
+    }                                                               \
+} while(0)
+
 namespace fs = std::filesystem;
 
 // ── Global barrier so all GPU threads are synchronized each step ──────────────
