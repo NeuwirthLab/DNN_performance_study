@@ -44,10 +44,24 @@ This performance analysis is comparing implementation in CUDA vs PyTorch across 
 ## 💻 Usage
 
 ### 1. Data Preparation
-This project is optimized for the **Tiny ImageNet** dataset. You must download and extract it to the root of the repository:
+
+**For Tiny ImageNet:**
 ```bash
 wget http://cs231n.stanford.edu/tiny-imagenet-200.zip
 unzip tiny-imagenet-200.zip
+```
+
+**For ImageNet-1k:**
+The highest performance, natively supported structure for C++ DataLoaders is the raw JPEG folder hierarchy. The easiest way to get this on an HPC is via **Kaggle**:
+1. Make sure your `kaggle.json` API token is inside `~/.kaggle/kaggle.json`.
+2. Run the following:
+```bash
+pip install kaggle
+mkdir -p imagenet && cd imagenet
+kaggle competitions download -c imagenet-object-localization-challenge
+unzip imagenet-object-localization-challenge.zip
+mv ILSVRC/Data/CLS-LOC/train .
+mv ILSVRC/Data/CLS-LOC/val .
 ```
 
 ### 2. Local Training
