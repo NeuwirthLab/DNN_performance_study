@@ -138,9 +138,14 @@ if(USE_NCCL)
         # Add definitions and includes to the shared library and the new target
         target_compile_definitions(resnet50_lib PUBLIC USE_NCCL)
         target_include_directories(resnet50_lib PUBLIC ${NCCL_INCLUDE})
-        # Link NCCL to resnet50_lib as PUBLIC so all dependents (main, train,
-        # benchmark, etc.) transitively get libnccl and can resolve ncclAllReduce
         target_link_libraries(resnet50_lib PUBLIC ${NCCL_LIB})
+
+        # resnet50_lib is compiled with USE_NCCL so SyncGradients calls ncclAllReduce.
+        # Explicitly link libnccl to every executable — transitive propagation from
+        # a STATIC library is not always reliable across CMake/linker versions.
+        foreach(_tgt main train train_tinyimagenet train_imagenet benchmark train_bench)
+            target_link_libraries(${_tgt} PRIVATE ${NCCL_LIB})
+        endforeach()
 
         add_executable(train_multigpu train_multigpu.cu)
         target_compile_definitions(train_multigpu PRIVATE USE_NCCL)

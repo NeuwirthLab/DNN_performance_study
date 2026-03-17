@@ -109,7 +109,14 @@ cd ..
 echo "=== Starting Multi-GPU DDP Training... ==="
 # Format: ./train_multigpu [dataset] [global_batch] [epochs] [lr]
 # Global batch 256 is split evenly across 4 GPUs → 64 per GPU
-./build/train_multigpu ./imagenet 256 90 0.1
+# TODO: set IMAGENET_DIR to where your ImageNet data lives on Helma scratch
+IMAGENET_DIR="${WORK}/imagenet"   # update this path!
+if [ ! -d "${IMAGENET_DIR}/train" ]; then
+    echo "ERROR: ImageNet not found at ${IMAGENET_DIR}/train"
+    echo "Set IMAGENET_DIR in this script to the correct path."
+    exit 1
+fi
+./build/train_multigpu "${IMAGENET_DIR}" 256 90 0.1
 
 echo ""
 echo "=== Job Complete at $(date) ==="
