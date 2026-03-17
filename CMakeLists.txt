@@ -94,6 +94,10 @@ target_link_libraries(train PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDN
 add_executable(train_tinyimagenet train_tinyimagenet.cu)
 target_link_libraries(train_tinyimagenet PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES})
 
+# ── Training on ImageNet-1k ───────────────────────────────────────────────────
+add_executable(train_imagenet train_imagenet.cu)
+target_link_libraries(train_imagenet PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES})
+
 # ── Benchmark ─────────────────────────────────────────────────────────────────
 add_executable(benchmark benchmark.cu)
 target_link_libraries(benchmark PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES})
