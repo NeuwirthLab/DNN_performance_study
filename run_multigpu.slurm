@@ -105,18 +105,65 @@ cmake .. \
 make -j"$(nproc)"
 cd ..
 
-# 6. Run multi-GPU training
-echo "=== Starting Multi-GPU DDP Training... ==="
-# Format: ./train_multigpu [dataset] [global_batch] [epochs] [lr]
-# Global batch 256 is split evenly across 4 GPUs → 64 per GPU
-# TODO: set IMAGENET_DIR to where your ImageNet data lives on Helma scratch
-IMAGENET_DIR="${WORK}/imagenet"   # update this path!
-if [ ! -d "${IMAGENET_DIR}/train" ]; then
-    echo "ERROR: ImageNet not found at ${IMAGENET_DIR}/train"
-    echo "Set IMAGENET_DIR in this script to the correct path."
+# 7. Extract ImageNet to Node-Local TMPDIR
+echo ""
+echo "=== Extracting ImageNet to Node-Local TMPDIR ($TMPDIR) ==="
+IMAGENET_ZIP="/home/atuin/m102cd/m102cd10/resnet_multi_gpu/imagenet/imagenet-object-localization-challenge.zip"
+if [ ! -f "${IMAGENET_ZIP}" ]; then
+    echo "ERROR: ImageNet zip not found at ${IMAGENET_ZIP}"
     exit 1
 fi
-./build/train_multigpu "${IMAGENET_DIR}" 256 90 0.1
+
+# We use $TMPDIR provided by SLURM
+NODE_DATA_DIR="$TMPDIR/imagenet_data"
+
+if [ ! -d "$NODE_DATA_DIR/ILSVRC/Data/CLS-LOC" ]; then
+    mkdir -p "$NODE_DATA_DIR"
+    # Unzip quietly, suppress output as there are 1.2M files
+    echo "Unzipping (this will take a few minutes)..."
+    unzip -q -n "$IMAGENET_ZIP" -d "$NODE_DATA_DIR"
+    
+    echo "Unzip complete. Running validation set prep..."
+    # The Kaggle zip puts validation images flat in LOC/val. We need to arrange them.
+    # We will run a quick inline python script to arrange them into 1000 WNID folders based on LOC_val_solution.csv
+    python3 -c "
+import os, shutil, csv
+val_dir = '$NODE_DATA_DIR/ILSVRC/Data/CLS-LOC/val'
+csv_path = '$NODE_DATA_DIR/LOC_val_solution.csv'
+
+if os.path.exists(val_dir) and os.path.exists(csv_path):
+    print('Arranging validation set...')
+    with open(csv_path, 'r') as f:
+        reader = csv.reader(f)
+        next(reader) # skip header
+        for row in reader:
+            img_id = row[0]
+            # Prediction string format: 'n01440764 1 2 3 4' -> we just want the WNID
+            wnid = row[1].split()[0]
+            
+            # create target dir
+            target_dir = os.path.join(val_dir, wnid)
+            os.makedirs(target_dir, exist_ok=True)
+            
+            src_file = os.path.join(val_dir, img_id + '.JPEG')
+            dst_file = os.path.join(target_dir, img_id + '.JPEG')
+            
+            if os.path.exists(src_file):
+                shutil.move(src_file, dst_file)
+    print('Validation set arranged successfully.')
+else:
+    print('Warning: LOC_val_solution.csv or val_dir not found. Skipping val prep.')
+"
+else
+    echo "Dataset already found in $TMPDIR, skipping unzip."
+fi
+
+# 8. Run multi-GPU training
+echo ""
+echo "=== Starting Multi-GPU DDP Training... ==="
+# Format: ./train_multigpu [extracted_data_dir] [global_batch] [epochs] [lr]
+# Global batch 256 is split evenly across 4 GPUs → 64 per GPU
+./build/train_multigpu "$NODE_DATA_DIR/ILSVRC/Data/CLS-LOC" 256 90 0.1
 
 echo ""
 echo "=== Job Complete at $(date) ==="
