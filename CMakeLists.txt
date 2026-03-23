@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(ResNet50_CUDA LANGUAGES CXX CUDA)
+project(ResNet50_CUDA LANGUAGES C CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -77,10 +77,14 @@ else()
     set(NVTX_LIB nvtx3_headers)
 endif()
 
+# ── Miniz (pure-C library, always compiled with the C compiler) ──────────────
+add_library(miniz_lib STATIC miniz.c)
+set_target_properties(miniz_lib PROPERTIES LINKER_LANGUAGE C)
+
 # ── Core library ──────────────────────────────────────────────────────────────
 add_library(resnet50_lib STATIC resnet50.cu)
 target_include_directories(resnet50_lib PUBLIC ${CUDNN_INCLUDE_DIR} ${TORCH_INCLUDE_DIRS})
-target_link_libraries(resnet50_lib PUBLIC CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES})
+target_link_libraries(resnet50_lib PUBLIC miniz_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES})
 
 # ── Inference demo ────────────────────────────────────────────────────────────
 add_executable(main main.cu)
@@ -96,7 +100,7 @@ target_link_libraries(train_tinyimagenet PRIVATE resnet50_lib CUDA::cublas ${NVT
 
 # ── Training on ImageNet-1k ───────────────────────────────────────────────────
 add_executable(train_imagenet train_imagenet.cu)
-target_link_libraries(train_imagenet PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES})
+target_link_libraries(train_imagenet PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} stdc++fs)
 
 # ── Benchmark ─────────────────────────────────────────────────────────────────
 add_executable(benchmark benchmark.cu)
@@ -111,29 +115,67 @@ target_link_libraries(train_bench PRIVATE resnet50_lib CUDA::cublas ${NVTX_LIB} 
 option(USE_NCCL "Build the multi-GPU DDP training binary using NCCL" OFF)
 
 if(USE_NCCL)
-    # 1. Prioritize variables passed from command line (-DNCCL_LIB=... -DNCCL_INCLUDE=...)
-    if(NOT NCCL_LIB OR NOT NCCL_INCLUDE)
-        find_library(NCCL_LIB nccl
+    # If specific NCCL library/include explicitly provided via CMake options
+    if(DEFINED NCCL_LIB AND DEFINED NCCL_INCLUDE)
+        set(NCCL_LIBRARY_ACTUAL "-L${NCCL_LIB} -lnccl")
+        set(NCCL_INCLUDE_ACTUAL "${NCCL_INCLUDE}")
+    else()
+        # Find paths specifically for nvhpc which nests nccl inside a cuda version dir.
+        set(EXTRA_HINTS_LIB "")
+        set(EXTRA_HINTS_INC "")
+        if(DEFINED ENV{NVHPC_ROOT})
+            # NVHPC 24.11 format: NVHPC_ROOT/Linux_x86_64/24.11/comm_libs/12.6/nccl
+            file(GLOB NVHPC_NCCL_PATHS "$ENV{NVHPC_ROOT}/Linux_x86_64/*/comm_libs/*/nccl")
+            foreach(p IN LISTS NVHPC_NCCL_PATHS)
+                list(APPEND EXTRA_HINTS_LIB "${p}/lib")
+                list(APPEND EXTRA_HINTS_INC "${p}/include")
+            endforeach()
+        endif()
+
+        # Robustly find NCCL using hints from command line (-DNCCL_ROOT=...) or env
+        find_library(NCCL_LIBRARY NAMES nccl
             HINTS
-                ${CUDAToolkit_LIBRARY_DIR}
+                ${NCCL_ROOT}/lib
+                ${NCCL_ROOT}/lib64
                 $ENV{NCCL_HOME}/lib
                 $ENV{EBROOTNCCL}/lib
-                $ENV{NVHPC_ROOT}/Linux_x86_64/$ENV{NVHPC_VERSION}/comm_libs/nccl/lib
+                ${EXTRA_HINTS_LIB}
+                ${CUDAToolkit_LIBRARY_DIR}
                 /usr/local/cuda/lib64
         )
-        find_path(NCCL_INCLUDE nccl.h
+        find_path(NCCL_INCLUDE_DIR NAMES nccl.h
             HINTS
-                ${CUDAToolkit_INCLUDE_DIRS}
+                ${NCCL_ROOT}/include
                 $ENV{NCCL_HOME}/include
                 $ENV{EBROOTNCCL}/include
-                $ENV{NVHPC_ROOT}/Linux_x86_64/$ENV{NVHPC_VERSION}/comm_libs/nccl/include
+                ${EXTRA_HINTS_INC}
+                ${CUDAToolkit_INCLUDE_DIRS}
                 /usr/local/cuda/include
         )
+
+        # If NVHPC module or similar is loaded, the compiler might find it natively
+        if(NOT NCCL_INCLUDE_DIR OR NOT NCCL_LIBRARY)
+            find_path(NCCL_INCLUDE_DIR_FALLBACK NAMES nccl.h)
+            if(NCCL_INCLUDE_DIR_FALLBACK)
+                set(NCCL_INCLUDE_DIR ${NCCL_INCLUDE_DIR_FALLBACK})
+                # If it's in a standard include path, link against nccl natively using ENV variables
+                set(NCCL_LIBRARY "nccl") 
+            endif()
+        endif()
+
+        # In case find_library erroneously returned a directory path instead of library file
+        if(IS_DIRECTORY "${NCCL_LIBRARY}")
+            set(NCCL_LIBRARY_ACTUAL "-L${NCCL_LIBRARY} -lnccl")
+        else()
+            set(NCCL_LIBRARY_ACTUAL "${NCCL_LIBRARY}")
+        endif()
+        
+        set(NCCL_INCLUDE_ACTUAL "${NCCL_INCLUDE_DIR}")
     endif()
 
-    if(NCCL_LIB AND NCCL_INCLUDE)
-        message(STATUS "NCCL library  : ${NCCL_LIB}")
-        message(STATUS "NCCL include  : ${NCCL_INCLUDE}")
+    if(NCCL_LIBRARY_ACTUAL AND NCCL_INCLUDE_ACTUAL)
+        message(STATUS "NCCL linking : ${NCCL_LIBRARY_ACTUAL}")
+        message(STATUS "NCCL include : ${NCCL_INCLUDE_ACTUAL}")
 
         # train_multigpu recompiles resnet50.cu directly with USE_NCCL defined,
         # so SyncGradients (guarded by #ifdef USE_NCCL in resnet50.cu) is compiled in.
@@ -141,14 +183,14 @@ if(USE_NCCL)
         add_executable(train_multigpu train_multigpu.cu resnet50.cu)
         target_compile_definitions(train_multigpu PRIVATE USE_NCCL)
         target_include_directories(train_multigpu PRIVATE
-            ${NCCL_INCLUDE} ${CUDNN_INCLUDE_DIR} ${TORCH_INCLUDE_DIRS})
+            ${NCCL_INCLUDE_ACTUAL} ${CUDNN_INCLUDE_DIR} ${TORCH_INCLUDE_DIRS})
         target_link_libraries(train_multigpu PRIVATE
-            CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} ${NCCL_LIB})
+            CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} ${NCCL_LIBRARY_ACTUAL} stdc++fs)
 
         message(STATUS "Multi-GPU DDP target 'train_multigpu' enabled.")
     else()
         message(FATAL_ERROR "USE_NCCL=ON but nccl.h or libnccl not found. \n"
-                "Please provide -DNCCL_INCLUDE=/path/to/inc -DNCCL_LIB=/path/to/libnccl.so")
+                "Please provide -DNCCL_ROOT=/path/to/nccl, -DNCCL_LIB=/path/to/lib, or load nvhpc module")
     endif()
 endif()
 
