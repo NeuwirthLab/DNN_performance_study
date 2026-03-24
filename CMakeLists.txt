@@ -187,7 +187,14 @@ if(USE_NCCL)
         target_link_libraries(train_multigpu PRIVATE
             CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} ${NCCL_LIBRARY_ACTUAL} stdc++fs)
 
-        message(STATUS "Multi-GPU DDP target 'train_multigpu' enabled.")
+        add_executable(train_multigpu_tiny train_multigpu_tiny.cu resnet50.cu)
+        target_compile_definitions(train_multigpu_tiny PRIVATE USE_NCCL)
+        target_include_directories(train_multigpu_tiny PRIVATE
+            ${NCCL_INCLUDE_ACTUAL} ${CUDNN_INCLUDE_DIR} ${TORCH_INCLUDE_DIRS})
+        target_link_libraries(train_multigpu_tiny PRIVATE
+            CUDA::cublas ${NVTX_LIB} ${CUDNN_LIB} ${TORCH_LIBRARIES} ${NCCL_LIBRARY_ACTUAL} stdc++fs)
+
+        message(STATUS "Multi-GPU DDP target 'train_multigpu' and 'train_multigpu_tiny' enabled.")
     else()
         message(FATAL_ERROR "USE_NCCL=ON but nccl.h or libnccl not found. \n"
                 "Please provide -DNCCL_ROOT=/path/to/nccl, -DNCCL_LIB=/path/to/lib, or load nvhpc module")
