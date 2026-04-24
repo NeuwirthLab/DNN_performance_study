@@ -7,6 +7,12 @@
  * Compile:
  *   nvcc -O2 -arch=sm_75 -std=c++17 main.cu resnet50.cu \
  *        -o resnet50 -lcublas -lcudnn
+ *
+ * ROCm/HIP COMPATIBILITY NOTE:
+ * This file is purposefully maintained using standard NVIDIA CUDA/cuDNN syntax.
+ * For AMD builds (-DUSE_HIP), the includes in resnet50.cuh automatically route 
+ * these API calls through compatibility shims (gpu_compat.h and dnn_compat.h). 
+ * MIOpen constraints (e.g. beta=0 for accumulation) are respected natively here.
  */
 
 #include "resnet50.cuh"
@@ -302,21 +308,21 @@ ConvBnLayer::ConvBnLayer(cublasHandle_t cublas,
 ConvBnLayer::~ConvBnLayer()
 {
     // Parameters & BN stats
-    cudaFree(d_weight_);
-    cudaFree(d_bn_scale_); cudaFree(d_bn_bias_);
-    cudaFree(d_bn_mean_);  cudaFree(d_bn_var_);
-    cudaFree(d_saved_mean_); cudaFree(d_saved_inv_var_);
+    CUDA_CHECK(cudaFree(d_weight_));
+    CUDA_CHECK(cudaFree(d_bn_scale_)); CUDA_CHECK(cudaFree(d_bn_bias_));
+    CUDA_CHECK(cudaFree(d_bn_mean_));  CUDA_CHECK(cudaFree(d_bn_var_));
+    CUDA_CHECK(cudaFree(d_saved_mean_)); CUDA_CHECK(cudaFree(d_saved_inv_var_));
 
     // Gradient & velocity buffers
-    cudaFree(d_dweight_); cudaFree(d_dbn_scale_); cudaFree(d_dbn_bias_);
-    cudaFree(d_vel_w_);   cudaFree(d_vel_bns_);   cudaFree(d_vel_bnb_);
+    CUDA_CHECK(cudaFree(d_dweight_)); CUDA_CHECK(cudaFree(d_dbn_scale_)); CUDA_CHECK(cudaFree(d_dbn_bias_));
+    CUDA_CHECK(cudaFree(d_vel_w_));   CUDA_CHECK(cudaFree(d_vel_bns_));   CUDA_CHECK(cudaFree(d_vel_bnb_));
 
     // Forward / backward working buffers
-    if (d_conv_out_)  cudaFree(d_conv_out_);
-    if (d_out_)       cudaFree(d_out_);
-    if (d_dconv_out_) cudaFree(d_dconv_out_);
-    if (d_din_)       cudaFree(d_din_);
-    if (d_ws_)        cudaFree(d_ws_);
+    if (d_conv_out_)  CUDA_CHECK(cudaFree(d_conv_out_));
+    if (d_out_)       CUDA_CHECK(cudaFree(d_out_));
+    if (d_dconv_out_) CUDA_CHECK(cudaFree(d_dconv_out_));
+    if (d_din_)       CUDA_CHECK(cudaFree(d_din_));
+    if (d_ws_)        CUDA_CHECK(cudaFree(d_ws_));
 
     // cuDNN descriptors
     cudnnDestroyTensorDescriptor(in_desc_);
@@ -479,7 +485,7 @@ const float* ConvBnLayer::Forward(const float* d_in,
     if (training_) {
         CUDNN_CHECK(cudnnBatchNormalizationForwardTraining(
             cudnn_,
-            CUDNN_BATCHNORM_SPATIAL_PERSISTENT,
+            CUDNN_BATCHNORM_SPATIAL,
             &one, &zero,
             out_desc_, d_conv_out_,   // x  (conv output = BN input)
             out_desc_, d_out_,        // y  (BN output)
@@ -494,7 +500,7 @@ const float* ConvBnLayer::Forward(const float* d_in,
     } else {
         CUDNN_CHECK(cudnnBatchNormalizationForwardInference(
             cudnn_,
-            CUDNN_BATCHNORM_SPATIAL_PERSISTENT,
+            CUDNN_BATCHNORM_SPATIAL,
             &one, &zero,
             out_desc_, d_conv_out_,   // x
             out_desc_, d_out_,        // y
@@ -540,12 +546,12 @@ const float* ConvBnLayer::Backward(const float* dY, int N, int H, int W)
     //   x   = d_conv_out_   (conv output saved during forward)
     //   dy  = d_out_        (gradient after ReLU backward)
     //   dx  = d_dconv_out_  (gradient w.r.t. conv output)
-    //   betaParamDiff = 1 → accumulate into d_dbn_scale_ / d_dbn_bias_
+    //   betaParamDiff = 0 → overwrite d_dbn_scale_ / d_dbn_bias_
     CUDNN_CHECK(cudnnBatchNormalizationBackward(
         cudnn_,
-        CUDNN_BATCHNORM_SPATIAL_PERSISTENT,
+        CUDNN_BATCHNORM_SPATIAL,
         &one, &zero,    // alphaDataDiff, betaDataDiff
-        &one, &one,     // alphaParamDiff, betaParamDiff (accumulate)
+        &one, &zero,    // alphaParamDiff, betaParamDiff (overwrite)
         out_desc_, d_conv_out_,   // x  (BN input from forward)
         out_desc_, d_out_,        // dy (gradient after ReLU bwd)
         out_desc_, d_dconv_out_,  // dx (gradient w.r.t. BN input)
@@ -557,14 +563,14 @@ const float* ConvBnLayer::Backward(const float* dY, int N, int H, int W)
     ));
 
     // ── 3. Conv backward filter (accumulate dW) ───────────────────────────
-    //   beta = 1 → accumulate (ZeroGrad zeros it before each backward)
+    //   beta = 0 → overwrite (ZeroGrad zeros it before each backward anyway)
     CUDNN_CHECK(cudnnConvolutionBackwardFilter(
         cudnn_, &one,
         in_desc_,     d_saved_in_,   // x (original conv input)
         out_desc_,    d_dconv_out_,  // dy (gradient w.r.t. conv output)
         conv_desc_,   bwd_f_algo_,
         d_ws_,        ws_bytes_,
-        &one,                        // beta = 1  → accumulate
+        &zero,                       // beta = 0 (MIOpen requires 0)
         filter_desc_, d_dweight_
     ));
 
@@ -636,8 +642,8 @@ BottleneckBlock::BottleneckBlock(cublasHandle_t cublas,
 BottleneckBlock::~BottleneckBlock()
 {
     delete conv1_; delete conv2_; delete conv3_; delete proj_;
-    if (d_out_) cudaFree(d_out_);
-    if (d_din_) cudaFree(d_din_);
+    if (d_out_) CUDA_CHECK(cudaFree(d_out_));
+    if (d_din_) CUDA_CHECK(cudaFree(d_din_));
 }
 
 void BottleneckBlock::InitWeights(float scale)
@@ -780,7 +786,7 @@ ResNet50::ResNet50(int num_classes) : num_classes_(num_classes)
     // ── cuDNN MaxPool descriptor ──────────────────────────────────────────
     CUDNN_CHECK(cudnnCreatePoolingDescriptor(&maxpool_desc_));
     CUDNN_CHECK(cudnnSetPooling2dDescriptor(maxpool_desc_,
-        CUDNN_POOLING_MAX, CUDNN_NOT_PROPAGATE_NAN,
+        CUDNN_POOLING_MAX, CUDNN_PROPAGATE_NAN,
         3, 3,    // window H, W
         1, 1,    // padding H, W
         2, 2));  // stride H, W
@@ -840,23 +846,23 @@ ResNet50::~ResNet50()
     for (auto* b : layer3_) delete b;
     for (auto* b : layer4_) delete b;
 
-    if (d_conv1_out_) cudaFree(d_conv1_out_);
-    if (d_mp_out_)    cudaFree(d_mp_out_);
-    if (d_ap_out_)    cudaFree(d_ap_out_);
-    if (d_fc_out_)    cudaFree(d_fc_out_);
-    if (d_dap_)       cudaFree(d_dap_);
-    if (d_dl4_)       cudaFree(d_dl4_);
-    if (d_dconv1_)    cudaFree(d_dconv1_);
-    if (d_loss_buf_)    cudaFree(d_loss_buf_);
-    if (d_correct_buf_) cudaFree(d_correct_buf_);
-    if (d_ap_out_bf16_) cudaFree(d_ap_out_bf16_);
-    if (d_fc_w_bf16_) cudaFree(d_fc_w_bf16_);
-    if (d_dlogit_bf16_) cudaFree(d_dlogit_bf16_);
-    if (d_grad_bucket_) cudaFree(d_grad_bucket_);
+    if (d_conv1_out_) CUDA_CHECK(cudaFree(d_conv1_out_));
+    if (d_mp_out_)    CUDA_CHECK(cudaFree(d_mp_out_));
+    if (d_ap_out_)    CUDA_CHECK(cudaFree(d_ap_out_));
+    if (d_fc_out_)    CUDA_CHECK(cudaFree(d_fc_out_));
+    if (d_dap_)       CUDA_CHECK(cudaFree(d_dap_));
+    if (d_dl4_)       CUDA_CHECK(cudaFree(d_dl4_));
+    if (d_dconv1_)    CUDA_CHECK(cudaFree(d_dconv1_));
+    if (d_loss_buf_)    CUDA_CHECK(cudaFree(d_loss_buf_));
+    if (d_correct_buf_) CUDA_CHECK(cudaFree(d_correct_buf_));
+    if (d_ap_out_bf16_) CUDA_CHECK(cudaFree(d_ap_out_bf16_));
+    if (d_fc_w_bf16_) CUDA_CHECK(cudaFree(d_fc_w_bf16_));
+    if (d_dlogit_bf16_) CUDA_CHECK(cudaFree(d_dlogit_bf16_));
+    if (d_grad_bucket_) CUDA_CHECK(cudaFree(d_grad_bucket_));
 
-    cudaFree(d_fc_w_); cudaFree(d_fc_b_);
-    cudaFree(d_dfc_w_); cudaFree(d_dfc_b_);
-    cudaFree(d_vel_fcw_); cudaFree(d_vel_fcb_);
+    CUDA_CHECK(cudaFree(d_fc_w_)); CUDA_CHECK(cudaFree(d_fc_b_));
+    CUDA_CHECK(cudaFree(d_dfc_w_)); CUDA_CHECK(cudaFree(d_dfc_b_));
+    CUDA_CHECK(cudaFree(d_vel_fcw_)); CUDA_CHECK(cudaFree(d_vel_fcb_));
 
     cudnnDestroyTensorDescriptor(softmax_desc_);
     cudnnDestroyPoolingDescriptor(maxpool_desc_);
@@ -1045,7 +1051,7 @@ void ResNet50::fc_fwd(int N)
                                   &beta,
                                   d_fc_out_, CUDA_R_32F, K,
                                   CUBLAS_COMPUTE_32F,
-                                  CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+                                  CUBLAS_GEMM_DEFAULT));
     } else {
     const float alpha = 1.f, beta = 0.f;
     CUBLAS_CHECK(cublasSgemm(cublas_,
@@ -1087,7 +1093,7 @@ void ResNet50::fc_bwd(const float* d_dlogit, int N)
                                   &zero_f,
                                   d_dap_, CUDA_R_32F, M,
                                   CUBLAS_COMPUTE_32F,
-                                  CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+                                  CUBLAS_GEMM_DEFAULT));
 
         CUBLAS_CHECK(cublasGemmEx(cublas_,
                                   CUBLAS_OP_N, CUBLAS_OP_T,
@@ -1098,7 +1104,7 @@ void ResNet50::fc_bwd(const float* d_dlogit, int N)
                                   &one,
                                   d_dfc_w_, CUDA_R_32F, M,
                                   CUBLAS_COMPUTE_32F,
-                                  CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+                                  CUBLAS_GEMM_DEFAULT));
     } else {
     CUBLAS_CHECK(cublasSgemm(cublas_,
                               CUBLAS_OP_N, CUBLAS_OP_N,
