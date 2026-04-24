@@ -1,4 +1,12 @@
+// resnet50.cuh
+//
+// ROCm/HIP COMPATIBILITY NOTE:
+// This header is written in standard CUDA. For AMD builds (-DUSE_HIP),
+// the gpu_compat.h and dnn_compat.h headers below act as shims to map
+// CUDA/cuDNN calls to HIP/MIOpen without needing to run hipify.
 #pragma once
+#include "hip/gpu_compat.h"
+#include "hip/dnn_compat.h"
 /*
  * resnet50.cuh  –  ResNet-50  (forward + backward, cuDNN + cuBLAS)
  *
@@ -14,13 +22,25 @@
  *        -o resnet50 -lcublas -lcudnn
  */
 
-#include <cublas_v2.h>
-#include <cudnn.h>
-#include <cuda_bf16.h>
-#include <cuda_runtime.h>
-#include <nvtx3/nvToolsExt.h>
+#ifdef USE_HIP
+  #include <hipblas/hipblas.h>
+  #include <miopen/miopen.h>
+  #include <hip/hip_bf16.h>
+  #include <hip/hip_runtime.h>
+  // NVTX no-ops are provided by gpu_compat.h
+#else
+  #include <cublas_v2.h>
+  #include <cudnn.h>
+  #include <cuda_bf16.h>
+  #include <cuda_runtime.h>
+  #include <nvtx3/nvToolsExt.h>
+#endif
 #ifdef USE_NCCL
+#ifdef USE_HIP
+#include <rccl/rccl.h>
+#else
 #include <nccl.h>
+#endif
 #ifndef NCCL_CHECK
 #define NCCL_CHECK(cmd) do {                                        \
     ncclResult_t _r = (cmd);                                        \
