@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * train_multigpu.cu  -  ResNet-50 single-node multi-GPU DDP training
  *
@@ -32,8 +33,16 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#ifdef USE_HIP
+#include <rccl/rccl.h>
+#else
 #include <nccl.h>
 #include <nvtx3/nvToolsExt.h>
+#endif
+#ifndef nvtxRangePushA
+#define nvtxRangePushA(x) ((void)0)
+#define nvtxRangePop()    ((void)0)
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

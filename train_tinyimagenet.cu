@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * train_tinyimagenet.cu  –  ResNet-50 training loop on Tiny ImageNet
  *

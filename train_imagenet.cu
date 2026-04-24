@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
  /* train_imagenet.cu  –  ResNet-50 training loop on ImageNet-1k
  *
  * Features:

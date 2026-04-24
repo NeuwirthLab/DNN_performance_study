@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * train_multigpu.cu  -  ResNet-50 single-node multi-GPU DDP training
  *
@@ -212,8 +213,8 @@ void gpu_worker(GPUWorkerArgs args) {
     int* h_labels_pinned = nullptr;
     const size_t image_elements = static_cast<size_t>(args.local_batch) * 3 * 224 * 224;
     const size_t label_elements = static_cast<size_t>(args.local_batch);
-    CUDA_CHECK(cudaMallocHost(&h_images_pinned, image_elements * sizeof(float)));
-    CUDA_CHECK(cudaMallocHost(&h_labels_pinned, label_elements * sizeof(int)));
+    CUDA_CHECK(hipHostMalloc(&h_images_pinned, image_elements * sizeof(float)));
+    CUDA_CHECK(hipHostMalloc(&h_labels_pinned, label_elements * sizeof(int)));
 
     auto stage_batch_to_device = [&](const std::vector<float>& images, const std::vector<int>& labels) {
         if (images.size() > image_elements || labels.size() > label_elements) {
@@ -445,8 +446,8 @@ void gpu_worker(GPUWorkerArgs args) {
     CUDA_CHECK(cudaFree(d_stop_flag));
     CUDA_CHECK(cudaFree(d_batch_count));
 #ifndef USE_DALI
-    if (h_images_pinned) cudaFreeHost(h_images_pinned);
-    if (h_labels_pinned) cudaFreeHost(h_labels_pinned);
+    if (h_images_pinned) hipHostFree(h_images_pinned);
+    if (h_labels_pinned) hipHostFree(h_labels_pinned);
 #endif
     CUDA_CHECK(cudaStreamDestroy(stream));
 

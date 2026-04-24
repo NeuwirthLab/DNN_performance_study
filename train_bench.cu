@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * train_bench.cu  –  Training convergence benchmark for ResNet-50
  *
@@ -105,7 +106,7 @@ static void print_separator(int width = 100)
 static size_t get_free_memory()
 {
     size_t free_mem, total_mem;
-    CUDA_CHECK(cudaMemGetInfo(&free_mem, &total_mem));
+    CUDA_CHECK(hipMemGetInfo(&free_mem, &total_mem));
     return free_mem;
 }
 
@@ -305,7 +306,7 @@ int main(int argc, char** argv)
 
     // Memory
     size_t free_final, total_mem;
-    CUDA_CHECK(cudaMemGetInfo(&free_final, &total_mem));
+    CUDA_CHECK(hipMemGetInfo(&free_final, &total_mem));
     printf("\n=== Memory ===\n");
     print_separator();
     printf("Total VRAM          : %zu MB\n", total_mem / (1 << 20));

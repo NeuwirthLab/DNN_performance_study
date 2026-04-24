@@ -31,8 +31,8 @@
 static void print_device_info()
 {
     int dev = 0;
-    cudaDeviceProp prop;
-    CUDA_CHECK(cudaGetDeviceProperties(&prop, dev));
+    hipDeviceProp_t prop;
+    CUDA_CHECK(hipGetDeviceProperties(&prop, dev));
     std::cout << "GPU: " << prop.name
               << "  (SM " << prop.major << "." << prop.minor << ")"
               << "  VRAM: " << prop.totalGlobalMem / (1 << 20) << " MB\n";
@@ -41,7 +41,7 @@ static void print_device_info()
 static size_t get_free_memory()
 {
     size_t free_mem, total_mem;
-    CUDA_CHECK(cudaMemGetInfo(&free_mem, &total_mem));
+    CUDA_CHECK(hipMemGetInfo(&free_mem, &total_mem));
     return free_mem;
 }
 
@@ -85,8 +85,8 @@ int main(int argc, char** argv)
     float* d_images = nullptr;
     int*   d_labels = nullptr;
 
-    CUDA_CHECK(cudaMalloc(&d_images, (size_t)input_elems * sizeof(float)));
-    CUDA_CHECK(cudaMalloc(&d_labels, (size_t)batch_size  * sizeof(int)));
+    CUDA_CHECK(hipMalloc(&d_images, (size_t)input_elems * sizeof(float)));
+    CUDA_CHECK(hipMalloc(&d_labels, (size_t)batch_size  * sizeof(int)));
 
     // Generate random images (normalized to [-1, 1])
     gpu_fill_random(d_images, input_elems, 1.0f);
@@ -95,8 +95,8 @@ int main(int argc, char** argv)
     std::vector<int> h_labels(batch_size);
     for (int i = 0; i < batch_size; ++i)
         h_labels[i] = rand() % num_classes;
-    CUDA_CHECK(cudaMemcpy(d_labels, h_labels.data(),
-                          batch_size * sizeof(int), cudaMemcpyHostToDevice));
+    CUDA_CHECK(hipMemcpy(d_labels, h_labels.data(),
+                          batch_size * sizeof(int), hipMemcpyHostToDevice));
 
     std::cout << "Labels: [";
     for (int i = 0; i < batch_size; ++i)
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
     // ── Warm-up forward pass ─────────────────────────────────────────────
     std::cout << "Warm-up forward pass …\n";
     model.Forward(d_images, batch_size);
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(hipDeviceSynchronize());
     std::cout << "Done. Free GPU memory: "
               << get_free_memory() / (1 << 20) << " MB\n\n";
 
@@ -116,12 +116,12 @@ int main(int argc, char** argv)
     std::cout << "Epoch    Loss        Top-1 Acc    Time (ms)\n";
     std::cout << "─────────────────────────────────────────────\n";
 
-    cudaEvent_t ev_start, ev_stop;
-    CUDA_CHECK(cudaEventCreate(&ev_start));
-    CUDA_CHECK(cudaEventCreate(&ev_stop));
+    hipEvent_t ev_start, ev_stop;
+    CUDA_CHECK(hipEventCreate(&ev_start));
+    CUDA_CHECK(hipEventCreate(&ev_stop));
 
     for (int epoch = 0; epoch < num_epochs; ++epoch) {
-        CUDA_CHECK(cudaEventRecord(ev_start));
+        CUDA_CHECK(hipEventRecord(ev_start));
 
         // 1. Zero gradients
         model.ZeroGrad();
@@ -139,10 +139,10 @@ int main(int argc, char** argv)
         // 5. SGD optimizer step
         model.UpdateSGD(lr, momentum, weight_decay);
 
-        CUDA_CHECK(cudaEventRecord(ev_stop));
-        CUDA_CHECK(cudaEventSynchronize(ev_stop));
+        CUDA_CHECK(hipEventRecord(ev_stop));
+        CUDA_CHECK(hipEventSynchronize(ev_stop));
         float ms = 0.f;
-        CUDA_CHECK(cudaEventElapsedTime(&ms, ev_start, ev_stop));
+        CUDA_CHECK(hipEventElapsedTime(&ms, ev_start, ev_stop));
 
         printf("%5d    %8.4f    %6.1f %%      %7.1f\n",
                epoch + 1, loss, acc * 100.f, ms);
@@ -160,10 +160,10 @@ int main(int argc, char** argv)
               << "  acc=" << final_acc * 100.f << " %\n";
 
     // ── Cleanup ──────────────────────────────────────────────────────────
-    cudaFree(d_images);
-    cudaFree(d_labels);
-    cudaEventDestroy(ev_start);
-    cudaEventDestroy(ev_stop);
+    hipFree(d_images);
+    hipFree(d_labels);
+    hipEventDestroy(ev_start);
+    hipEventDestroy(ev_stop);
 
     return 0;
 }
