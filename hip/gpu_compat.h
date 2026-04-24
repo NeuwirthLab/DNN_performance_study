@@ -74,6 +74,19 @@
   #define CUBLAS_OP_T                 HIPBLAS_OP_T
   #define CUBLAS_OP_C                 HIPBLAS_OP_C
 
+  // cublasGemmEx → hipblasGemmEx
+  #define cublasGemmEx                hipblasGemmEx
+
+  // Data type enums for GemmEx (must be hipblasDatatype_t, not hipDataType)
+  #define CUDA_R_16BF                 HIPBLAS_R_16B
+  #define CUDA_R_32F                  HIPBLAS_R_32F
+  #define CUBLAS_COMPUTE_32F          HIPBLAS_R_32F
+  #define CUBLAS_GEMM_DEFAULT         HIPBLAS_GEMM_DEFAULT
+
+  // bfloat16: CUDA's __nv_bfloat16 → HIP's __hip_bfloat16
+  #include <hip/hip_bf16.h>
+  using __nv_bfloat16 = __hip_bfloat16;
+
   // NVTX → no-op on HIP (swap to roctx later if profiling is needed).
   #define nvtxRangePushA(x)           ((void)0)
   #define nvtxRangePop()              ((void)0)
