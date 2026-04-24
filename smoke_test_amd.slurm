@@ -1,14 +1,15 @@
 #!/bin/bash -l
-#SBATCH --job-name=rn50_amd_smoke
+#SBATCH --job-name=smoke_test_amd
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:2                 # adjust: e.g. gpu:mi300x:2 on some sites
+#SBATCH --mem-per-cpu=8G
+#SBATCH --account=l0003099
+#SBATCH --partition=gpu:mi300x:1
 #SBATCH --time=00:30:00
-#SBATCH --output=smoke_amd_%j.out
-#SBATCH --error=smoke_amd_%j.err
-#SBATCH --export=ALL
-
+#SBATCH --output=smoke_test_results/smoke_amd_%j.out
+#SBATCH --error=smoke_test_results/smoke_amd_%j.err
+#SBATCH --export=NONE
 # ============================================================================
 # AMD/ROCm smoke test — mirror of smoke_test_helma.slurm for the HIP port.
 #
@@ -30,8 +31,8 @@ echo " Start : $(date)"
 echo "========================================================"
 
 # ── EDIT THESE TWO PATHS ────────────────────────────────────────────────────
-WORKSPACE_BASE="${WORKSPACE_BASE:-$HOME/workspace}"
-PROJECT_DIR="${PROJECT_DIR:-$WORKSPACE_BASE/resnet50_hip_runtime}"
+WORKSPACE_BASE="${WORKSPACE_BASE:-$HPC_SCRATCH}"
+PROJECT_DIR="${PROJECT_DIR:-$WORKSPACE_BASE/resent50/performance-analysis-dl-models-resnet50}"
 # ────────────────────────────────────────────────────────────────────────────
 
 # ── 1. Filesystem ───────────────────────────────────────────────────────────
@@ -42,31 +43,44 @@ fi
 echo "  ✓ project dir: $PROJECT_DIR"
 echo "  ✓ TMPDIR: $TMPDIR  (free: $(df -h $TMPDIR | tail -1 | awk '{print $4}'))"
 
-# ── 2. Modules ──────────────────────────────────────────────────────────────
+# ── 2. Modules and Environment ────────────────────────────────────────────────
 echo ""
 echo "[2/7] Module loading"
 module purge
 # EDIT module names to match your AMD cluster; these are common defaults.
-module load rocm          || { echo "  FAIL: could not load rocm module"; exit 1; }
-module load miopen        2>/dev/null || true   # often bundled inside rocm
-module load rccl          2>/dev/null || true   # often bundled inside rocm
-module load cmake
+#module load rocm          || { echo "  FAIL: could not load rocm module"; exit 1; }
+#module load miopen        2>/dev/null || true   # often bundled inside rocm
+#odule load rccl          2>/dev/null || true   # often bundled inside rocm
+module load cmake/3.30.5-dy3s
+
+export ROCM_PATH=/opt/rocm
+export PATH="$ROCM_PATH/bin:$PATH"
+export LD_LIBRARY_PATH="$ROCM_PATH/lib:$LD_LIBRARY_PATH"
 
 echo "  ✓ hipcc : $(hipcc --version | head -1)"
 echo "  ✓ cmake : $(cmake --version | head -1 | awk '{print $3}')"
-echo "  ✓ ROCM_PATH = ${ROCM_PATH:-/opt/rocm}"
+echo "  ✓ ROCM_PATH = ${ROCM_PATH}"
 
 # ── 3. RCCL detection ───────────────────────────────────────────────────────
 echo ""
 echo "[3/7] RCCL detection"
 RCCL_ROOT=""
-for candidate in "$ROCM_PATH" "/opt/rocm" "$EBROOTRCCL"; do
-    [ -n "$candidate" ] && [ -f "$candidate/include/rccl/rccl.h" ] && \
-        RCCL_ROOT="$candidate" && break
+for candidate in "$ROCM_PATH" "/opt/rocm"; do
+    if [ -n "$candidate" ] && [ -f "$candidate/include/rccl/rccl.h" ]; then
+        RCCL_ROOT="$candidate"
+        break
+    fi
 done
+
 if [ -z "$RCCL_ROOT" ]; then
-    echo "  FAIL: rccl.h not found"; exit 1
+    echo "  FAIL: rccl.h not found under \$ROCM_PATH/include/rccl or /opt/rocm/include/rccl"
+    exit 1
 fi
+
+if [ ! -d "$RCCL_ROOT/lib" ] && [ ! -d "$RCCL_ROOT/lib64" ]; then
+    echo "  WARN: RCCL headers found, but no lib/lib64 directory detected under $RCCL_ROOT"
+fi
+
 echo "  ✓ RCCL : $RCCL_ROOT"
 
 # ── 4. GPU detection ────────────────────────────────────────────────────────
@@ -81,15 +95,12 @@ GFX_ARCH=$(rocminfo 2>/dev/null | awk '/gfx[0-9a-f]+/{for(i=1;i<=NF;i++) if($i ~
 [ -z "$GFX_ARCH" ] && GFX_ARCH="gfx942"
 echo "  ✓ GPU arch : $GFX_ARCH"
 
-# ── 5. Hipify any lingering pure-CUDA tokens ────────────────────────────────
+# ── 5. Hipify sweep — DISABLED ───────────────────────────────────────────────
+# Our approach keeps source files in CUDA naming and uses gpu_compat.h /
+# dnn_compat.h shims to remap at compile time via -DUSE_HIP. Running
+# hipify-perl again would undo this and break the build.
 echo ""
-echo "[5/7] hipify sweep (idempotent)"
-cd "$PROJECT_DIR"
-if command -v hipify-perl >/dev/null 2>&1; then
-    bash scripts/port_to_hip.sh || { echo "  FAIL: hipify script"; exit 1; }
-else
-    echo "  skip: hipify-perl not on PATH (our shims may cover it; continuing)"
-fi
+echo "[5/7] hipify sweep — SKIPPED (using compat-shim approach)"
 
 # ── 6. Build ────────────────────────────────────────────────────────────────
 echo ""
