@@ -1,16 +1,17 @@
-// dnn_compat.h — cuDNN ↔ MIOpen typedef/macro shim + algorithm helpers.
+// dnn_compat.h — Compile-time Compatibility Shim: cuDNN ↔ MIOpen
+#include <vector>
 //
-// WHY A SEPARATE HEADER
-// cuDNN and MIOpen have similar object models (tensor / filter / conv /
-// pooling / BN descriptors) but DIFFERENT algorithm-selection APIs. Pure
-// macro-renaming handles the create/set/destroy calls, but conv fwd/bwd
-// algorithm discovery needs a real wrapper. Keep both here so the model
-// code (resnet50.cu) can include ONE file.
+// ROCm/HIP COMPATIBILITY DESIGN:
+// Rather than permanently modifying the original CUDA codebase using hipify,
+// this shim intercepts standard cuDNN calls (via -DUSE_HIP) and maps them
+// to their AMD MIOpen equivalents. 
 //
-// STATUS
-// This is a starter template. Every #error marker below is a spot that must
-// be verified against the actual MIOpen version on your AMD cluster before
-// training results are trusted. Do that on the AMD box, not here.
+// Key Responsibilities:
+// 1. Remapping missing enums and algorithm types.
+// 2. Struct adaptation (e.g., matching cuDNN's algo perf structs).
+// 3. Inline wrappers to handle API differences (e.g., argument ordering, 
+//    const cast removal for MIOpen BN, and thread-local workspace management 
+//    for MIOpen Max Pooling backward and algorithm Find passes).
 #pragma once
 #include "gpu_compat.h"
 
@@ -30,10 +31,9 @@
   #define cudnnTensorDescriptor_t                miopenTensorDescriptor_t
   #define cudnnCreateTensorDescriptor            miopenCreateTensorDescriptor
   #define cudnnDestroyTensorDescriptor           miopenDestroyTensorDescriptor
-  // Signatures differ slightly (format enum position); see set_tensor_4d() below.
 
   // ── filter / conv / pool descriptors ──────────────────────────────────
-  #define cudnnFilterDescriptor_t                miopenTensorDescriptor_t   // MIOpen reuses tensor desc for filters
+  #define cudnnFilterDescriptor_t                miopenTensorDescriptor_t
   #define cudnnCreateFilterDescriptor            miopenCreateTensorDescriptor
   #define cudnnDestroyFilterDescriptor           miopenDestroyTensorDescriptor
   #define cudnnConvolutionDescriptor_t           miopenConvolutionDescriptor_t
@@ -43,11 +43,35 @@
   #define cudnnCreatePoolingDescriptor           miopenCreatePoolingDescriptor
   #define cudnnDestroyPoolingDescriptor          miopenDestroyPoolingDescriptor
 
+  // ── algorithm types ───────────────────────────────────────────────────
+  #define cudnnConvolutionFwdAlgo_t              miopenConvFwdAlgorithm_t
+  #define cudnnConvolutionBwdFilterAlgo_t        miopenConvBwdWeightsAlgorithm_t
+  #define cudnnConvolutionBwdDataAlgo_t          miopenConvBwdDataAlgorithm_t
+
+  // ── perf structs ──────────────────────────────────────────────────────
+  // cuDNN perf structs have .algo and .memory; MIOpen's miopenConvAlgoPerf_t
+  // uses a union of fwd_algo/bwd_weights_algo/bwd_data_algo. We create
+  // compat structs so source code can use .algo and .memory uniformly.
+  struct cudnnConvolutionFwdAlgoPerf_t {
+      miopenConvFwdAlgorithm_t algo;
+      float time;
+      size_t memory;
+  };
+  struct cudnnConvolutionBwdFilterAlgoPerf_t {
+      miopenConvBwdWeightsAlgorithm_t algo;
+      float time;
+      size_t memory;
+  };
+  struct cudnnConvolutionBwdDataAlgoPerf_t {
+      miopenConvBwdDataAlgorithm_t algo;
+      float time;
+      size_t memory;
+  };
+
   // ── dtype / format / mode enums ───────────────────────────────────────
   #define CUDNN_DATA_FLOAT                       miopenFloat
   #define CUDNN_DATA_HALF                        miopenHalf
-  // cuDNN has CUDNN_TENSOR_NCHW layout flag; MIOpen's legacy API is NCHW by default
-  // (there is no explicit layout parameter in miopenSet4dTensorDescriptor).
+  #define CUDNN_TENSOR_NCHW                      0   // MIOpen is NCHW by default
 
   #define CUDNN_BATCHNORM_SPATIAL                miopenBNSpatial
   #define CUDNN_BATCHNORM_PER_ACTIVATION         miopenBNPerActivation
@@ -55,20 +79,21 @@
 
   #define CUDNN_POOLING_MAX                      miopenPoolingMax
   #define CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING miopenPoolingAverageInclusive
-  #define CUDNN_PROPAGATE_NAN                    0 /* MIOpen has no equivalent; ignored */
+  #define CUDNN_PROPAGATE_NAN                    0
+  #define CUDNN_NOT_PROPAGATE_NAN                0
 
   #define CUDNN_CROSS_CORRELATION                miopenConvolution
 
-  // cuDNN's math-type selector (tensor-op) has no direct MIOpen counterpart.
-  #define cudnnSetConvolutionMathType(desc, mode) miopenStatusSuccess
+  #define CUDNN_SOFTMAX_ACCURATE                 MIOPEN_SOFTMAX_ACCURATE
+  #define CUDNN_SOFTMAX_MODE_INSTANCE            MIOPEN_SOFTMAX_MODE_INSTANCE
 
-  // ── inline wrappers to paper over signature differences ───────────────
-  //
-  // Model code calls e.g.:
-  //   cudnnSetTensor4dDescriptor(d, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, n,c,h,w);
-  // MIOpen's analog:
-  //   miopenSet4dTensorDescriptor(d, miopenFloat, n,c,h,w);
-  // So we macro cudnnSetTensor4dDescriptor to a helper that drops the format arg.
+  // cuDNN's math-type selector has no direct MIOpen counterpart.
+  #define cudnnSetConvolutionMathType(desc, mode) miopenStatusSuccess
+  #define CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION  0
+  #define CUBLAS_TF32_TENSOR_OP_MATH             0
+  #define cublasSetMathMode(handle, mode)        HIPBLAS_STATUS_SUCCESS
+
+  // ── inline wrappers: descriptor setters ───────────────────────────────
   static inline miopenStatus_t
   _hip_set_tensor_4d(miopenTensorDescriptor_t d, int /*format*/,
                      miopenDataType_t dt, int n, int c, int h, int w) {
@@ -104,26 +129,343 @@
   #define cudnnSetPooling2dDescriptor(d, mode, nanprop, wh, ww, ph, pw, sh, sw) \
       _hip_set_pool_2d((d), (int)(mode), (int)(nanprop), (wh), (ww), (ph), (pw), (sh), (sw))
 
-  // ── conv fwd/bwd execution + algo selection ───────────────────────────
-  //
-  // cuDNN:  cudnnFindConvolutionForwardAlgorithm(...) returns a perf array.
-  // MIOpen: miopenFindConvolutionForwardAlgorithm(...) has a similar shape
-  //         but requires pre-allocated workspace and the tensors themselves.
-  //
-  // The model only needs "pick the best algo + its workspace size". Expose
-  // minimal wrappers here; the model calls these instead of the cuDNN
-  // perf-struct dance.
-  //
-  // TODO(amrit): implement these wrappers on the AMD box with real tensors
-  //   once the first compile works. Leaving declarations only for now so the
-  //   linker flags the sites needing attention.
-  //
-  // Suggested signatures:
-  //   miopenStatus_t find_conv_fwd_algo(handle, xDesc, wDesc, convDesc, yDesc,
-  //                                     void* workspace, size_t wsSize,
-  //                                     miopenConvFwdAlgorithm_t* algo_out);
-  //   miopenStatus_t find_conv_bwd_filter_algo(...);
-  //   miopenStatus_t find_conv_bwd_data_algo(...);
+  // ═══════════════════════════════════════════════════════════════════════
+  // Algorithm selection wrappers
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // cudnnFindConvolutionForwardAlgorithmEx → miopenFindConvolutionForwardAlgorithm
+  // MIOpen's Find fills miopenConvAlgoPerf_t (with .fwd_algo); we convert
+  // to our compat struct which has .algo.
+  static inline miopenStatus_t
+  cudnnFindConvolutionForwardAlgorithmEx(
+      miopenHandle_t handle,
+      miopenTensorDescriptor_t xDesc, const void* x,
+      miopenTensorDescriptor_t wDesc, const void* w,
+      miopenConvolutionDescriptor_t convDesc,
+      miopenTensorDescriptor_t yDesc, void* y,
+      int requestedAlgoCount, int* returnedAlgoCount,
+      cudnnConvolutionFwdAlgoPerf_t* perfResults,
+      void* workSpace, size_t workSpaceSizeInBytes)
+  {
+      // Use MIOpen's native perf struct
+      std::vector<miopenConvAlgoPerf_t> mi_perfs(requestedAlgoCount);
+      miopenStatus_t st = miopenFindConvolutionForwardAlgorithm(
+          handle, xDesc, x, wDesc, w, convDesc, yDesc, y,
+          requestedAlgoCount, returnedAlgoCount, mi_perfs.data(),
+          workSpace, workSpaceSizeInBytes, /*exhaustiveSearch=*/true);
+      // Convert to compat struct
+      for (int i = 0; i < *returnedAlgoCount && i < requestedAlgoCount; ++i) {
+          perfResults[i].algo   = mi_perfs[i].fwd_algo;
+          perfResults[i].time   = mi_perfs[i].time;
+          perfResults[i].memory = mi_perfs[i].memory;
+      }
+      return st;
+  }
+
+  // cudnnGetConvolutionBackwardFilterAlgorithm_v7
+  // cuDNN v7 heuristic doesn't need data; MIOpen's Find does.
+  // We just pick the first algorithm returned by MIOpen's immediate mode.
+  static inline miopenStatus_t
+  cudnnGetConvolutionBackwardFilterAlgorithm_v7(
+      miopenHandle_t handle,
+      miopenTensorDescriptor_t xDesc,
+      miopenTensorDescriptor_t dyDesc,
+      miopenConvolutionDescriptor_t convDesc,
+      miopenTensorDescriptor_t dwDesc,
+      int requestedAlgoCount, int* returnedAlgoCount,
+      cudnnConvolutionBwdFilterAlgoPerf_t* perfResults)
+  {
+      // MIOpen requires Find to register invokers. Since cuDNN v7 heuristic
+      // doesn't provide data pointers, we allocate temporary ones.
+      size_t x_sz=0, dy_sz=0, dw_sz=0, ws_sz=0;
+      miopenGetTensorNumBytes(xDesc, &x_sz);
+      miopenGetTensorNumBytes(dyDesc, &dy_sz);
+      miopenGetTensorNumBytes(dwDesc, &dw_sz);
+      miopenConvolutionBackwardWeightsGetWorkSpaceSize(handle, dyDesc, xDesc, convDesc, dwDesc, &ws_sz);
+
+      void *d_x=nullptr, *d_dy=nullptr, *d_dw=nullptr, *d_ws=nullptr;
+      if (x_sz) cudaMalloc(&d_x, x_sz);
+      if (dy_sz) cudaMalloc(&d_dy, dy_sz);
+      if (dw_sz) cudaMalloc(&d_dw, dw_sz);
+      if (ws_sz) cudaMalloc(&d_ws, ws_sz);
+
+      std::vector<miopenConvAlgoPerf_t> mi_perfs(requestedAlgoCount);
+      miopenStatus_t st = miopenFindConvolutionBackwardWeightsAlgorithm(
+          handle, dyDesc, d_dy, xDesc, d_x, convDesc, dwDesc, d_dw,
+          requestedAlgoCount, returnedAlgoCount, mi_perfs.data(),
+          d_ws, ws_sz, /*exhaustiveSearch=*/false);
+
+      if (st == miopenStatusSuccess) {
+          for (int i = 0; i < *returnedAlgoCount && i < requestedAlgoCount; ++i) {
+              perfResults[i].algo   = mi_perfs[i].bwd_weights_algo;
+              perfResults[i].time   = mi_perfs[i].time;
+              perfResults[i].memory = mi_perfs[i].memory;
+          }
+      }
+
+      if (d_x) cudaFree(d_x);
+      if (d_dy) cudaFree(d_dy);
+      if (d_dw) cudaFree(d_dw);
+      if (d_ws) cudaFree(d_ws);
+
+      return st;
+  }
+
+  static inline miopenStatus_t
+  cudnnGetConvolutionBackwardDataAlgorithm_v7(
+      miopenHandle_t handle,
+      miopenTensorDescriptor_t wDesc,
+      miopenTensorDescriptor_t dyDesc,
+      miopenConvolutionDescriptor_t convDesc,
+      miopenTensorDescriptor_t dxDesc,
+      int requestedAlgoCount, int* returnedAlgoCount,
+      cudnnConvolutionBwdDataAlgoPerf_t* perfResults)
+  {
+      size_t w_sz=0, dy_sz=0, dx_sz=0, ws_sz=0;
+      miopenGetTensorNumBytes(wDesc, &w_sz);
+      miopenGetTensorNumBytes(dyDesc, &dy_sz);
+      miopenGetTensorNumBytes(dxDesc, &dx_sz);
+      miopenConvolutionBackwardDataGetWorkSpaceSize(handle, dyDesc, wDesc, convDesc, dxDesc, &ws_sz);
+
+      void *d_w=nullptr, *d_dy=nullptr, *d_dx=nullptr, *d_ws=nullptr;
+      if (w_sz) cudaMalloc(&d_w, w_sz);
+      if (dy_sz) cudaMalloc(&d_dy, dy_sz);
+      if (dx_sz) cudaMalloc(&d_dx, dx_sz);
+      if (ws_sz) cudaMalloc(&d_ws, ws_sz);
+
+      std::vector<miopenConvAlgoPerf_t> mi_perfs(requestedAlgoCount);
+      miopenStatus_t st = miopenFindConvolutionBackwardDataAlgorithm(
+          handle, dyDesc, d_dy, wDesc, d_w, convDesc, dxDesc, d_dx,
+          requestedAlgoCount, returnedAlgoCount, mi_perfs.data(),
+          d_ws, ws_sz, /*exhaustiveSearch=*/false);
+
+      if (st == miopenStatusSuccess) {
+          for (int i = 0; i < *returnedAlgoCount && i < requestedAlgoCount; ++i) {
+              perfResults[i].algo   = mi_perfs[i].bwd_data_algo;
+              perfResults[i].time   = mi_perfs[i].time;
+              perfResults[i].memory = mi_perfs[i].memory;
+          }
+      }
+
+      if (d_w) cudaFree(d_w);
+      if (d_dy) cudaFree(d_dy);
+      if (d_dx) cudaFree(d_dx);
+      if (d_ws) cudaFree(d_ws);
+
+      return st;
+  }
+
+  // ── Workspace size queries ────────────────────────────────────────────
+  static inline miopenStatus_t
+  cudnnGetConvolutionBackwardFilterWorkspaceSize(
+      miopenHandle_t handle,
+      miopenTensorDescriptor_t xDesc,
+      miopenTensorDescriptor_t dyDesc,
+      miopenConvolutionDescriptor_t convDesc,
+      miopenTensorDescriptor_t dwDesc,
+      miopenConvBwdWeightsAlgorithm_t /*algo*/,
+      size_t* sizeInBytes)
+  {
+      return miopenConvolutionBackwardWeightsGetWorkSpaceSize(
+          handle, dyDesc, xDesc, convDesc, dwDesc, sizeInBytes);
+  }
+
+  static inline miopenStatus_t
+  cudnnGetConvolutionBackwardDataWorkspaceSize(
+      miopenHandle_t handle,
+      miopenTensorDescriptor_t wDesc,
+      miopenTensorDescriptor_t dyDesc,
+      miopenConvolutionDescriptor_t convDesc,
+      miopenTensorDescriptor_t dxDesc,
+      miopenConvBwdDataAlgorithm_t /*algo*/,
+      size_t* sizeInBytes)
+  {
+      return miopenConvolutionBackwardDataGetWorkSpaceSize(
+          handle, dyDesc, wDesc, convDesc, dxDesc, sizeInBytes);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Execution function wrappers  (parameter order differs)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // cuDNN:  ...algo, ws, wsSize, beta, yDesc, y
+  // MIOpen: ...algo, beta, yDesc, y, ws, wsSize
+  static inline miopenStatus_t
+  cudnnConvolutionForward(
+      miopenHandle_t handle, const void* alpha,
+      miopenTensorDescriptor_t xDesc, const void* x,
+      miopenTensorDescriptor_t wDesc, const void* w,
+      miopenConvolutionDescriptor_t convDesc,
+      miopenConvFwdAlgorithm_t algo,
+      void* workSpace, size_t workSpaceSizeInBytes,
+      const void* beta,
+      miopenTensorDescriptor_t yDesc, void* y)
+  {
+      return miopenConvolutionForward(handle, alpha,
+          xDesc, x, wDesc, w, convDesc, algo,
+          beta, yDesc, y, workSpace, workSpaceSizeInBytes);
+  }
+
+  // cuDNN:  ...convDesc, algo, ws, wsSize, beta, filterDesc, dw
+  // MIOpen: ...convDesc, algo, beta, dwDesc, dw, ws, wsSize
+  static inline miopenStatus_t
+  cudnnConvolutionBackwardFilter(
+      miopenHandle_t handle, const void* alpha,
+      miopenTensorDescriptor_t xDesc, const void* x,
+      miopenTensorDescriptor_t dyDesc, const void* dy,
+      miopenConvolutionDescriptor_t convDesc,
+      miopenConvBwdWeightsAlgorithm_t algo,
+      void* workSpace, size_t workSpaceSizeInBytes,
+      const void* beta,
+      miopenTensorDescriptor_t dwDesc, void* dw)
+  {
+      return miopenConvolutionBackwardWeights(handle, alpha,
+          dyDesc, dy, xDesc, x, convDesc, algo,
+          beta, dwDesc, dw, workSpace, workSpaceSizeInBytes);
+  }
+
+  // cuDNN:  handle, alpha, wDesc, w, dyDesc, dy, convDesc, algo, ws, wsSize, beta, dxDesc, dx
+  // MIOpen: handle, alpha, dyDesc, dy, wDesc, w, convDesc, algo, beta, dxDesc, dx, ws, wsSize
+  static inline miopenStatus_t
+  cudnnConvolutionBackwardData(
+      miopenHandle_t handle, const void* alpha,
+      miopenTensorDescriptor_t wDesc, const void* w,
+      miopenTensorDescriptor_t dyDesc, const void* dy,
+      miopenConvolutionDescriptor_t convDesc,
+      miopenConvBwdDataAlgorithm_t algo,
+      void* workSpace, size_t workSpaceSizeInBytes,
+      const void* beta,
+      miopenTensorDescriptor_t dxDesc, void* dx)
+  {
+      return miopenConvolutionBackwardData(handle, alpha,
+          dyDesc, dy, wDesc, w, convDesc, algo,
+          beta, dxDesc, dx, workSpace, workSpaceSizeInBytes);
+  }
+
+  // ── Batch Normalization (signatures match closely but MIOpen lacks const) ──
+  static inline miopenStatus_t
+  cudnnBatchNormalizationForwardTraining(
+      miopenHandle_t handle, miopenBatchNormMode_t mode,
+      const void *alpha, const void *beta,
+      miopenTensorDescriptor_t xDesc, const void *x,
+      miopenTensorDescriptor_t yDesc, void *y,
+      miopenTensorDescriptor_t bnScaleBiasMeanVarDesc,
+      const void *bnScale, const void *bnBias,
+      double exponentialAverageFactor,
+      void *resultRunningMean, void *resultRunningVariance,
+      double epsilon,
+      void *resultSaveMean, void *resultSaveInvVariance)
+  {
+      return miopenBatchNormalizationForwardTraining(
+          handle, mode, (void*)alpha, (void*)beta,
+          xDesc, x, yDesc, y, bnScaleBiasMeanVarDesc,
+          (void*)bnScale, (void*)bnBias,
+          exponentialAverageFactor, resultRunningMean, resultRunningVariance,
+          epsilon, resultSaveMean, resultSaveInvVariance);
+  }
+
+  static inline miopenStatus_t
+  cudnnBatchNormalizationForwardInference(
+      miopenHandle_t handle, miopenBatchNormMode_t mode,
+      const void *alpha, const void *beta,
+      miopenTensorDescriptor_t xDesc, const void *x,
+      miopenTensorDescriptor_t yDesc, void *y,
+      miopenTensorDescriptor_t bnScaleBiasMeanVarDesc,
+      const void *bnScale, const void *bnBias,
+      const void *estimatedMean, const void *estimatedVariance,
+      double epsilon)
+  {
+      return miopenBatchNormalizationForwardInference(
+          handle, mode, (void*)alpha, (void*)beta,
+          xDesc, x, yDesc, y, bnScaleBiasMeanVarDesc,
+          (void*)bnScale, (void*)bnBias,
+          (void*)estimatedMean, (void*)estimatedVariance, epsilon);
+  }
+
+  static inline miopenStatus_t
+  cudnnBatchNormalizationBackward(
+      miopenHandle_t handle, miopenBatchNormMode_t mode,
+      const void *alphaDataDiff, const void *betaDataDiff,
+      const void *alphaParamDiff, const void *betaParamDiff,
+      miopenTensorDescriptor_t xDesc, const void *x,
+      miopenTensorDescriptor_t dyDesc, const void *dy,
+      miopenTensorDescriptor_t dxDesc, void *dx,
+      miopenTensorDescriptor_t bnScaleBiasDiffDesc,
+      const void *bnScale,
+      void *resultBnScaleDiff, void *resultBnBiasDiff,
+      double epsilon,
+      const void *savedMean, const void *savedInvVariance)
+  {
+      return miopenBatchNormalizationBackward(
+          handle, mode,
+          (void*)alphaDataDiff, (void*)betaDataDiff,
+          (void*)alphaParamDiff, (void*)betaParamDiff,
+          xDesc, x, dyDesc, dy, dxDesc, dx,
+          bnScaleBiasDiffDesc, (void*)bnScale,
+          resultBnScaleDiff, resultBnBiasDiff,
+          epsilon, (void*)savedMean, (void*)savedInvVariance);
+  }
+
+  // ── Pooling ───────────────────────────────────────────────────────────
+  // MIOpen requires a workspace for max pooling backward indices.
+  // cuDNN does not pass a workspace pointer, so we manage a thread-local one.
+  static thread_local void* g_miopen_pool_ws = nullptr;
+  static thread_local size_t g_miopen_pool_ws_size = 0;
+
+  static inline miopenStatus_t
+  cudnnPoolingForward(
+      miopenHandle_t handle,
+      miopenPoolingDescriptor_t poolDesc,
+      const void* alpha,
+      miopenTensorDescriptor_t xDesc, const void* x,
+      const void* beta,
+      miopenTensorDescriptor_t yDesc, void* y)
+  {
+      size_t ws_size = 0;
+      miopenPoolingGetWorkSpaceSizeV2(poolDesc, yDesc, &ws_size);
+      if (ws_size > g_miopen_pool_ws_size) {
+          if (g_miopen_pool_ws) cudaFree(g_miopen_pool_ws);
+          cudaMalloc(&g_miopen_pool_ws, ws_size);
+          g_miopen_pool_ws_size = ws_size;
+      }
+      return miopenPoolingForward(handle, poolDesc, alpha,
+          xDesc, x, beta, yDesc, y, /*do_backward=*/true,
+          g_miopen_pool_ws, ws_size);
+  }
+
+  static inline miopenStatus_t
+  cudnnPoolingBackward(
+      miopenHandle_t handle,
+      miopenPoolingDescriptor_t poolDesc,
+      const void* alpha,
+      miopenTensorDescriptor_t yDesc, const void* y,
+      miopenTensorDescriptor_t dyDesc, const void* dy,
+      miopenTensorDescriptor_t xDesc, const void* x,
+      const void* beta,
+      miopenTensorDescriptor_t dxDesc, void* dx)
+  {
+      return miopenPoolingBackward(handle, poolDesc, alpha,
+          yDesc, y, dyDesc, dy, xDesc, x,
+          beta, dxDesc, dx, g_miopen_pool_ws);
+  }
+
+  // ── Softmax ───────────────────────────────────────────────────────────
+  // cuDNN:  handle, algo, mode, alpha, xDesc, x, beta, yDesc, y
+  // MIOpen: handle, alpha, xDesc, x, beta, yDesc, y, algo, mode
+  static inline miopenStatus_t
+  cudnnSoftmaxForward(
+      miopenHandle_t handle,
+      int algo, int mode,
+      const void* alpha,
+      miopenTensorDescriptor_t xDesc, const void* x,
+      const void* beta,
+      miopenTensorDescriptor_t yDesc, void* y)
+  {
+      return miopenSoftmaxForward_V2(handle, alpha, xDesc, x,
+          beta, yDesc, y,
+          (miopenSoftmaxAlgorithm_t)algo,
+          (miopenSoftmaxMode_t)mode);
+  }
 
 #else
   // CUDA path — real cuDNN.
