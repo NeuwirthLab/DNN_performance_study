@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
  * benchmark.cu  –  Comprehensive ResNet-50 ML benchmark
  *
@@ -39,7 +40,7 @@ static void print_separator(int width = 70)
 static void get_mem(size_t& free_mb, size_t& total_mb)
 {
     size_t f, t;
-    CUDA_CHECK(cudaMemGetInfo(&f, &t));
+    CUDA_CHECK(hipMemGetInfo(&f, &t));
     free_mb  = f / (1 << 20);
     total_mb = t / (1 << 20);
 }
@@ -183,7 +184,7 @@ static void print_batch_scaling(int max_batch, int num_classes)
 
         // Check available memory first
         size_t free_mem, total_mem;
-        CUDA_CHECK(cudaMemGetInfo(&free_mem, &total_mem));
+        CUDA_CHECK(hipMemGetInfo(&free_mem, &total_mem));
         size_t input_bytes = (size_t)bs * 3 * 224 * 224 * sizeof(float);
         if (input_bytes > free_mem / 2) {
             printf("%6d %10s\n", bs, "OOM");
@@ -226,7 +227,7 @@ static void print_batch_scaling(int max_batch, int num_classes)
             size_t used_mb;
             {
                 size_t f2, t2;
-                CUDA_CHECK(cudaMemGetInfo(&f2, &t2));
+                CUDA_CHECK(hipMemGetInfo(&f2, &t2));
                 used_mb = (t2 - f2) / (1 << 20);
             }
 
@@ -239,7 +240,7 @@ static void print_batch_scaling(int max_batch, int num_classes)
         } catch (const std::exception& e) {
             printf("%6d %10s  (%s)\n", bs, "FAILED", e.what());
             // Reset device after OOM
-            cudaDeviceReset();
+            hipDeviceReset();
             break;
         }
     }
@@ -307,7 +308,7 @@ static void print_memory_report(ResNet50& model, float* d_input, int batch)
     print_separator();
 
     size_t free_before, total;
-    CUDA_CHECK(cudaMemGetInfo(&free_before, &total));
+    CUDA_CHECK(hipMemGetInfo(&free_before, &total));
     size_t used = (total - free_before) / (1 << 20);
 
     printf("Total VRAM      : %zu MB\n", total / (1 << 20));
@@ -319,7 +320,7 @@ static void print_memory_report(ResNet50& model, float* d_input, int batch)
     CUDA_CHECK(cudaDeviceSynchronize());
 
     size_t free_after;
-    CUDA_CHECK(cudaMemGetInfo(&free_after, &total));
+    CUDA_CHECK(hipMemGetInfo(&free_after, &total));
     size_t peak_used = (total - free_after) / (1 << 20);
 
     printf("Peak (after fwd): %zu MB\n", peak_used);
