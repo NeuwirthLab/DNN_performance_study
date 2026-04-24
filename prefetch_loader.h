@@ -21,7 +21,7 @@
 //   loader.StartPrefetch();
 //   while (loader.HasNextBatch()) {
 //       auto batch = loader.GetNextBatch();
-//       cudaMemcpyAsync(d_images, batch.images.data(), ...);
+//       hipMemcpyAsync(d_images, batch.images.data(), ...);
 //       // train...
 //   }
 //   loader.StopPrefetch();

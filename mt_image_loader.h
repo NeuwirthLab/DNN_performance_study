@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 #pragma once
 // =============================================================================
 // mt_image_loader.h — Multi-threaded ImageNet data loader
@@ -14,7 +15,7 @@
 //   MTImageLoader loader(dataset, wnids, batch_size, "train", true, rank, ws, 8);
 //   while (loader.HasNextBatch()) {
 //       loader.GetNextBatch(h_images, h_labels);
-//       cudaMemcpyAsync(d_images, h_images.data(), ...);
+//       hipMemcpyAsync(d_images, h_images.data(), ...);
 //       // train
 //   }
 //   loader.Reset();
