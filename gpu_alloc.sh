@@ -1,0 +1,1 @@
+srun   --account=l0003099   --partition=gpu:mi300x:2   --nodes=1   --ntasks=1   --cpus-per-task=8   --mem-per-cpu=8G   --time=02:00:00   --gres=gpu:mi300x:2   --pty /bin/bash -l
