@@ -1,0 +1,49 @@
+========================================================
+ ResNet-50 AMD/HIP Scaling Test
+ Job   : 51590320
+ Node  : gaod0001
+========================================================
+Building train_multigpu_tiny ...
+Build OK: /tmp/scaling_build_hip/train_multigpu_tiny
+Detected GPUs: 8
+
+=== STRONG SCALING (Fixed Global Batch = 256) ===
+Running 1 GPU(s)... (Local Batch = 256)
+  -> Throughput: 2209 Img/sec
+
+Running 2 GPU(s)... (Local Batch = 128)
+  -> Throughput: 4120 Img/sec
+
+Running 4 GPU(s)... (Local Batch = 64)
+  -> Throughput: 4073 Img/sec
+
+Running 8 GPU(s)... (Local Batch = 32)
+  -> Throughput: 4309 Img/sec
+
+=== WEAK SCALING (Fixed Local Batch = 64) ===
+Running 1 GPU(s)... (Global Batch = 64)
+  -> Throughput: 1903 Img/sec
+
+Running 2 GPU(s)... (Global Batch = 128)
+  -> Throughput: 3812 Img/sec
+
+Running 4 GPU(s)... (Global Batch = 256)
+  -> Throughput: 4104 Img/sec
+
+Running 8 GPU(s)... (Global Batch = 512)
+  -> Throughput: 4578 Img/sec
+
+========================================================
+ Scaling tests complete!
+ CSV: /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/scaling_metrics.csv
+========================================================
+GPUs,TestType,GlobalBatch,LocalBatch,ImgPerSec
+1,Strong,256,256,2209
+1,Weak,64,64,
+2,Strong,256,128,4120
+4,Strong,256,64,4073
+8,Strong,256,32,4309
+1,Weak,64,64,1903
+2,Weak,128,64,3812
+4,Weak,256,64,4104
+8,Weak,512,64,4578
