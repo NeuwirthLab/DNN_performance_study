@@ -1,0 +1,115 @@
+========================================================
+ ResNet-50 AMD/HIP Smoke Test
+ Job   : 51589679
+ Node  : gaod0001
+ Start : Sat Apr 25 01:58:13 CEST 2026
+========================================================
+[1/7] Filesystem check
+  ✓ project dir: /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50
+  ✓ TMPDIR: /tmp  (free: 508M)
+
+[2/7] Module loading
+  ✓ cmake : 3.30.5
+  ✓ ROCM_PATH = /opt/rocm
+
+[3/7] RCCL detection
+  ✓ RCCL : /opt/rocm
+
+[4/7] GPU detection
+
+
+============================ ROCm System Management Interface ============================
+====================================== Product Info ======================================
+GPU[0]		: Card Series: 		AMD Instinct MI300X
+GPU[0]		: Card Model: 		0x74a1
+GPU[0]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[0]		: Card SKU: 		M3000100
+GPU[0]		: Subsystem ID: 	0x74a1
+GPU[0]		: Device Rev: 		0x00
+GPU[0]		: Node ID: 		12
+GPU[0]		: GUID: 		28851
+GPU[0]		: GFX Version: 		gfx942
+GPU[1]		: Card Series: 		AMD Instinct MI300X
+GPU[1]		: Card Model: 		0x74a1
+GPU[1]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[1]		: Card SKU: 		M3000100
+GPU[1]		: Subsystem ID: 	0x74a1
+GPU[1]		: Device Rev: 		0x00
+GPU[1]		: Node ID: 		9
+  ✓ GPU arch : gfx942
+
+[5/7] hipify sweep — SKIPPED (using compat-shim approach)
+
+[6/7] Build (train_multigpu_tiny via hip/)
+  ✓ built: /tmp/smoke_build_hip/train_multigpu_tiny
+
+=== Training Configuration ===
+  - GPUs            : 2
+  - Global batch    : 256
+  - Local batch     : 128
+  - Epochs          : 20
+  - Learning rate   : 0.1
+  - Data location   : /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/tiny-imagenet-200
+  - Checkpoint every: 15 epochs
+
+[7/7] Training (20 epochs, Tiny ImageNet, 2 GPUs)
+  Starting at Sat Apr 25 01:58:24 CEST 2026
+=== ResNet-50 Multi-GPU ImageNet Training (DDP via NCCL) ===
+GPUs found       : 2
+Global batch     : 256 | Per-GPU: 128
+Epochs           : 20
+Base LR          : 0.1
+Data dir         : /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/tiny-imagenet-200
+
+[Rank 1] Loading dataset from: /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/tiny-imagenet-200
+[Rank 0] Weights broadcast to all GPUs
+[Rank 0] Loading dataset from: /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/tiny-imagenet-200
+Discovered 100000 training images across 200 classes.
+Discovered 100000 training images across 200 classes.
+[Rank 0] Data shard: 50000 samples
+[Rank 0] Train loader ready: 50000 samples
+[Rank 1] Data shard: 50000 samples
+[Rank 1] Train loader ready: 50000 samples
+Discovered 10000 validation images.
+Discovered 10000 validation images.
+[Rank 0] Data shard: 5000 samples
+[Rank 0] Val loader ready: 5000 samples
+
+Multi-GPU Training: 2 GPUs | Global Batch: 256 | Local per GPU: 128
+Epoch  LR       Train Loss   Train Acc    Val Loss     Val Acc      Time(s)    Img/sec     
+--------------------------------------------------------------------------------------------
+[Rank 1] Data shard: 5000 samples
+[Rank 1] Val loader ready: 5000 samples
+1      0.05000  5.0760       2.96         4.5418       7.49         24.7       4037        
+2      0.10000  4.2007       10.99        3.8751       15.69        25.3       3948        
+3      0.10000  3.5741       20.18        3.5005       22.72        25.0       3987        
+4      0.09924  3.1971       26.43        3.3599       24.64        25.2       3959        
+5      0.09698  2.9051       31.82        3.2349       27.54        25.4       3925        
+6      0.09330  2.6544       36.57        3.1064       29.61        23.6       4225        
+7      0.08830  2.4170       41.30        2.9438       33.03        25.3       3951        
+8      0.08214  2.1689       45.99        2.9527       34.70        24.9       4004        
+9      0.07500  1.9001       51.54        2.8505       36.42        24.9       4016        
+10     0.06710  1.6322       57.56        2.9560       35.96        24.7       4040        
+11     0.05868  1.3202       65.01        2.9371       36.88        25.2       3963        
+12     0.05000  1.0017       72.91        3.0756       36.78        25.6       3902        
+13     0.04132  0.6820       81.14        3.2166       37.10        25.5       3918        
+14     0.03290  0.4052       88.97        3.3433       37.82        25.4       3926        
+15     0.02500  0.2131       94.42        3.6338       38.00        25.9       3855        
+[Checkpoint] Saved -> checkpoints/resnet50_multigpu_epoch15.bin
+  >> Checkpoint saved: checkpoints/resnet50_multigpu_epoch15.bin
+16     0.01786  0.1142       97.32        3.7504       39.36        24.8       4032        
+17     0.01170  0.0600       98.73        3.8325       39.68        28.2       3542        
+18     0.00670  0.0370       99.28        3.9469       39.60        25.7       3890        
+19     0.00302  0.0259       99.55        4.1674       39.66        25.4       3923        
+
+=== Early stopping at epoch 19 ===
+
+Multi-GPU training complete.
+Checkpoints in: checkpoints/
+
+=== Job Summary ===
+  Finished at Sat Apr 25 02:07:10 CEST 2026
+  ✓ AMD/HIP TRAINING COMPLETE
+  Checkpoints saved to: /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/checkpoints/
+  Job ID: 51589679
+=== Job Complete ===
