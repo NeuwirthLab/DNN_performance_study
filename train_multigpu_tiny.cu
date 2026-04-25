@@ -89,6 +89,7 @@ struct GPUWorkerArgs {
     float       weight_decay;
     int         warmup_epochs;
     int         patience;
+    int         save_every_n;   // save checkpoint every N epochs (0 = only at end)
     // Only rank 0 writes files
     std::string checkpoint_dir;
 };
@@ -267,14 +268,18 @@ void gpu_worker(GPUWorkerArgs args) {
                     << epoch_sec << "," << img_per_sec << "\n";
             csv_log.flush();
 
-            std::string pt_path = args.checkpoint_dir + "/resnet50_multigpu_epoch" + std::to_string(epoch) + ".bin";
-            model.SaveWeights(pt_path);
+            // Save checkpoint only every save_every_n epochs (or at end)
+            if (args.save_every_n > 0 && ((epoch + 1) % args.save_every_n == 0)) {
+                std::string pt_path = args.checkpoint_dir + "/resnet50_multigpu_epoch" + std::to_string(epoch + 1) + ".bin";
+                model.SaveWeights(pt_path);
+                printf("  >> Checkpoint saved: %s\n", pt_path.c_str());
+            }
 
             if (val_loader.NumSamples() > 0 && val_loss < best_val_loss) {
                 best_val_loss = val_loss;
                 patience_counter = 0;
-                model.SaveWeights(args.checkpoint_dir + "/resnet50_multigpu_best.bin");
-                printf("  >> New best model (val_loss=%.4f)\n", val_loss);
+                // We only save every save_every_n epochs now to prevent disk IO
+                // model.SaveWeights(args.checkpoint_dir + "/resnet50_multigpu_best.bin");
             } else {
                 patience_counter++;
                 if (patience_counter >= args.patience) {
@@ -314,12 +319,12 @@ void gpu_worker(GPUWorkerArgs args) {
 int main(int argc, char** argv) {
     std::string data_dir  = (argc > 1) ? argv[1] : "./imagenet";
     int global_batch      = (argc > 2) ? std::atoi(argv[2]) : 256;
-    int num_epochs        = (argc > 3) ? std::atoi(argv[3]) : 90;
+    int num_epochs        = (argc > 3) ? std::atoi(argv[3]) : 20;
     float base_lr         = (argc > 4) ? std::atof(argv[4]) : 0.1f;
     int num_classes       = 200;
     float momentum        = 0.9f;
     float weight_decay    = 1e-4f;
-    int warmup_epochs     = 5;
+    int warmup_epochs     = 2;
     int patience          = 10;
 
     // ── Discover GPUs ─────────────────────────────────────────────────────────
@@ -367,6 +372,7 @@ int main(int argc, char** argv) {
         args.weight_decay    = weight_decay;
         args.warmup_epochs   = warmup_epochs;
         args.patience        = patience;
+        args.save_every_n    = 15;          // save checkpoint every 15 epochs
         args.checkpoint_dir  = "checkpoints";
         threads.emplace_back(gpu_worker, args);
     }
