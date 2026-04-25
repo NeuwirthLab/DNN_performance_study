@@ -5,11 +5,11 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=8G
 #SBATCH --account=l0003099
-#SBATCH --partition=gpu:mi300x:1
-#SBATCH --time=00:30:00
+#SBATCH --partition=gpu:mi300x:2
+#SBATCH --gres=gpu:mi300x:2
+#SBATCH --time=02:00:00
 #SBATCH --output=smoke_test_results/smoke_amd_%j.out
 #SBATCH --error=smoke_test_results/smoke_amd_%j.err
-#SBATCH --export=NONE
 # ============================================================================
 # AMD/ROCm smoke test — mirror of smoke_test_helma.slurm for the HIP port.
 #
@@ -46,18 +46,16 @@ echo "  ✓ TMPDIR: $TMPDIR  (free: $(df -h $TMPDIR | tail -1 | awk '{print $4}'
 # ── 2. Modules and Environment ────────────────────────────────────────────────
 echo ""
 echo "[2/7] Module loading"
-module purge
-# EDIT module names to match your AMD cluster; these are common defaults.
-#module load rocm          || { echo "  FAIL: could not load rocm module"; exit 1; }
-#module load miopen        2>/dev/null || true   # often bundled inside rocm
-#odule load rccl          2>/dev/null || true   # often bundled inside rocm
+#module purge
+#module load rocm          2>/dev/null || true
+#module load rccl          2>/dev/null || true
 module load cmake/3.30.5-dy3s
 
 export ROCM_PATH=/opt/rocm
 export PATH="$ROCM_PATH/bin:$PATH"
 export LD_LIBRARY_PATH="$ROCM_PATH/lib:$LD_LIBRARY_PATH"
 
-echo "  ✓ hipcc : $(hipcc --version | head -1)"
+#echo "  ✓ hipcc : $(hipcc --version | head -1)"
 echo "  ✓ cmake : $(cmake --version | head -1 | awk '{print $3}')"
 echo "  ✓ ROCM_PATH = ${ROCM_PATH}"
 
@@ -66,7 +64,7 @@ echo ""
 echo "[3/7] RCCL detection"
 RCCL_ROOT=""
 for candidate in "$ROCM_PATH" "/opt/rocm"; do
-    if [ -n "$candidate" ] && [ -f "$candidate/include/rccl/rccl.h" ]; then
+    if [ -n "$candidate" ] && { [ -f "$candidate/include/rccl/rccl.h" ] || [ -f "$candidate/include/rccl.h" ]; }; then
         RCCL_ROOT="$candidate"
         break
     fi
@@ -125,8 +123,6 @@ fi
 echo "  ✓ built: $BUILD_DIR/train_multigpu_tiny"
 
 # ── 7. Training ─────────────────────────────────────────────────────────────
-echo ""
-echo "[7/7] Training (2 epochs, Tiny ImageNet, 2 GPUs)"
 TINY_DIR="$PROJECT_DIR/tiny-imagenet-200"
 if [ ! -d "$TINY_DIR" ]; then
     echo "  FAIL: dataset missing at $TINY_DIR"
@@ -134,9 +130,44 @@ if [ ! -d "$TINY_DIR" ]; then
     exit 1
 fi
 
+GPU_COUNT=$(rocm-smi --showproductname 2>/dev/null | grep -ci "Card Series" || true)
+if [ -z "$GPU_COUNT" ] || [ "$GPU_COUNT" -eq 0 ]; then
+    GPU_COUNT=${SLURM_GPUS_PER_NODE:-2}
+fi
+
+GLOBAL_BATCH="${TINY_GLOBAL_BATCH:-256}"
+EPOCHS="${TINY_EPOCHS:-20}"
+LR="${TINY_LR:-0.1}"
+LOCAL_BATCH=$((GLOBAL_BATCH / GPU_COUNT))
+
+echo ""
+echo "=== Training Configuration ==="
+echo "  - GPUs            : $GPU_COUNT"
+echo "  - Global batch    : $GLOBAL_BATCH"
+echo "  - Local batch     : $LOCAL_BATCH"
+echo "  - Epochs          : $EPOCHS"
+echo "  - Learning rate   : $LR"
+echo "  - Data location   : $TINY_DIR"
+echo "  - Checkpoint every: 15 epochs"
+echo ""
+echo "[7/7] Training (${EPOCHS} epochs, Tiny ImageNet, ${GPU_COUNT} GPUs)"
 echo "  Starting at $(date)"
-"$BUILD_DIR/train_multigpu_tiny" "$TINY_DIR" 128 2 0.1
+
+# Ensure Img/sec column is never wrapped in the SLURM log file
+export COLUMNS=200
+
+"$BUILD_DIR/train_multigpu_tiny" "$TINY_DIR" "$GLOBAL_BATCH" "$EPOCHS" "$LR"
 STATUS=$?
-echo "  Finished at $(date) — exit $STATUS"
-[ $STATUS -eq 0 ] && echo "  ✓ AMD/HIP SMOKE TEST PASSED" \
-                  || { echo "  ✗ FAILED"; exit $STATUS; }
+
+echo ""
+echo "=== Job Summary ==="
+echo "  Finished at $(date)"
+if [ $STATUS -eq 0 ]; then
+    echo "  ✓ AMD/HIP TRAINING COMPLETE"
+    echo "  Checkpoints saved to: $PROJECT_DIR/checkpoints/"
+    echo "  Job ID: $SLURM_JOB_ID"
+else
+    echo "  ✗ Training FAILED (exit $STATUS)"
+    exit $STATUS
+fi
+echo "=== Job Complete ==="
