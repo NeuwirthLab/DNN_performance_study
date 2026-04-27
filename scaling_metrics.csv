@@ -1,0 +1,10 @@
+GPUs,TestType,GlobalBatch,LocalBatch,ImgPerSec
+1,Strong,256,256,2209
+1,Weak,64,64,
+2,Strong,256,128,4120
+4,Strong,256,64,4073
+8,Strong,256,32,4309
+1,Weak,64,64,1903
+2,Weak,128,64,3812
+4,Weak,256,64,4104
+8,Weak,512,64,4578
