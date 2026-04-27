@@ -1,0 +1,86 @@
+========================================================
+ ResNet-50 AMD/HIP Smoke Test
+ Job   : 51583653
+ Node  : gaod0001
+ Start : Fri Apr 24 17:07:56 CEST 2026
+========================================================
+[1/7] Filesystem check
+  ✓ project dir: /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50
+  ✓ TMPDIR: /tmp  (free: 512M)
+
+[2/7] Module loading
+  ✓ hipcc : HIP version: 6.4.43482-0f2d60242
+  ✓ cmake : 3.30.5
+  ✓ ROCM_PATH = /opt/rocm
+
+[3/7] RCCL detection
+  ✓ RCCL : /opt/rocm
+
+[4/7] GPU detection
+
+
+============================ ROCm System Management Interface ============================
+====================================== Product Info ======================================
+GPU[0]		: Card Series: 		AMD Instinct MI300X
+GPU[0]		: Card Model: 		0x74a1
+GPU[0]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[0]		: Card SKU: 		M3000100
+GPU[0]		: Subsystem ID: 	0x74a1
+GPU[0]		: Device Rev: 		0x00
+GPU[0]		: Node ID: 		12
+GPU[0]		: GUID: 		28851
+GPU[0]		: GFX Version: 		gfx942
+GPU[1]		: Card Series: 		AMD Instinct MI300X
+GPU[1]		: Card Model: 		0x74a1
+GPU[1]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[1]		: Card SKU: 		M3000100
+GPU[1]		: Subsystem ID: 	0x74a1
+GPU[1]		: Device Rev: 		0x00
+GPU[1]		: Node ID: 		9
+  ✓ GPU arch : gfx942
+
+[5/7] hipify sweep (idempotent)
+  skip (already ported): resnet50.cu
+  skip (already ported): resnet50.cuh
+  hipify: main.cu
+  hipify: train.cu
+  skip (already ported): train_tinyimagenet.cu
+  skip (already ported): train_imagenet.cu
+  skip (already ported): train_multigpu.cu
+  skip (already ported): train_multigpu_tiny.cu
+  skip (already ported): benchmark.cu
+  skip (already ported): train_bench.cu
+  hipify: tiny_dataloader.h
+  skip (already ported): imagenet_loader.h
+  hipify: prefetch_loader.h
+  skip (already ported): mt_image_loader.h
+
+Summary: converted=4  skipped=10
+Originals saved as *.cuda.bak (tracked in .gitignore — remove once confident).
+
+[6/7] Build (train_multigpu_tiny via hip/)
+  FAIL: build — last 40 lines:
+[ 20%] Building C object CMakeFiles/miniz_lib.dir/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/miniz.c.o
+/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/miniz.c:3185:9: note: ‘#pragma message: Using fopen, ftello, fseeko, stat() etc. path for file I/O - this path may not support large files.’
+ 3185 | #pragma message("Using fopen, ftello, fseeko, stat() etc. path for file I/O - this path may not support large files.")
+      |         ^~~~~~~
+[ 40%] Linking C static library libminiz_lib.a
+[ 40%] Built target miniz_lib
+[ 80%] Building HIP object CMakeFiles/train_multigpu_tiny.dir/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/resnet50.cu.o
+[ 80%] Building HIP object CMakeFiles/train_multigpu_tiny.dir/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/train_multigpu_tiny.cu.o
+In file included from /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/resnet50.cu:13:
+/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/resnet50.cuh:20:10: fatal error: 'hipblas.h' file not found
+   20 | #include <hipblas.h>
+      |          ^~~~~~~~~~~
+1 error generated when compiling for gfx942.
+gmake[3]: *** [CMakeFiles/train_multigpu_tiny.dir/build.make:88: CMakeFiles/train_multigpu_tiny.dir/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/resnet50.cu.o] Error 1
+gmake[3]: *** Waiting for unfinished jobs....
+In file included from /work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/train_multigpu_tiny.cu:22:
+/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/resnet50.cuh:20:10: fatal error: 'hipblas.h' file not found
+   20 | #include <hipblas.h>
+      |          ^~~~~~~~~~~
+1 error generated when compiling for gfx942.
+gmake[3]: *** [CMakeFiles/train_multigpu_tiny.dir/build.make:75: CMakeFiles/train_multigpu_tiny.dir/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/train_multigpu_tiny.cu.o] Error 1
+gmake[2]: *** [CMakeFiles/Makefile2:170: CMakeFiles/train_multigpu_tiny.dir/all] Error 2
+gmake[1]: *** [CMakeFiles/Makefile2:177: CMakeFiles/train_multigpu_tiny.dir/rule] Error 2
+gmake: *** [Makefile:163: train_multigpu_tiny] Error 2
