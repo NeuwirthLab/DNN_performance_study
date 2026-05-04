@@ -2,6 +2,12 @@
 
 #ifdef USE_DALI
 
+#if defined(USE_HIP) && !defined(USE_ROCAL)
+#error "DALI is NVIDIA-only. On AMD/HIP builds, either omit -DUSE_DALI=ON \
+(the build will use mt_image_loader.h + prefetch_loader.h) or implement \
+a rocAL-backed loader and gate it on USE_ROCAL."
+#endif
+
 #include <cuda_runtime.h>
 
 #include <dali/c_api.h>
