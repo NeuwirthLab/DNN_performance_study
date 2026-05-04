@@ -41,8 +41,6 @@
 #include <atomic>
 #include <cstring>
 #include <limits>
-#include <nccl.h>
-#include <nvtx3/nvToolsExt.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -141,8 +139,10 @@ void gpu_worker(GPUWorkerArgs args) {
     model.SetStream(stream);
     model.InitWeights();
 
-    // Enable TF32 on Ampere+
+    // Enable TF32 on Ampere+ (NVIDIA-only; AMD MI300X picks precision automatically)
+#ifndef USE_HIP
     cublasSetMathMode(model.Cublas(), CUBLAS_TF32_TENSOR_OP_MATH);
+#endif
 
     // ── Broadcast weights from rank 0 to all GPUs ──────────────────────────
     model.BroadcastWeights(args.comm, stream);
