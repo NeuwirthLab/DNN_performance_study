@@ -1,0 +1,20 @@
+{
+  "held_out_network": "mobilenet_v3_large",
+  "no_refit": true,
+  "e_vec_J_per_FLOP": 3.933589033892953e-11,
+  "e_vec_source": "coefficients_vec.json",
+  "baseline_json": "_baseline_8gpu_mobilenet_v3_large.json",
+  "F_vec_window_FLOP": 4962217000000.0,
+  "P_vec_W": 185.1424653353075,
+  "baseline": {
+    "P_dyn_pred_W": 282.7592500713088,
+    "err_power_pct": -40.21281589590178,
+    "err_total_pct": -31.045735155274222
+  },
+  "with_e_vec": {
+    "P_dyn_pred_W": 467.9017154066163,
+    "err_power_pct": -1.0659209395135094,
+    "err_total_pct": -0.8229291694036855
+  },
+  "P_dyn_meas_W": 472.94291294767066
+}

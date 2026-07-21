@@ -1,0 +1,51 @@
+{
+  "coefficients_file": "power_analysis/coefficients_final.json",
+  "generator": "power_analysis/predict_4gpu_energy.py",
+  "method": "compose_energy.predict_energy (canonical Stage-2). Per-GPU work-rates reused from the canonical PMC profiles (native = profiles/native_in1k_retry_52488168, pytorch = profiles/pt_amd_52438059), comm term from measured 3-epoch throughput. Identical to revalidate_fulldata.py. WEAK (256/GPU) matches the profile batch exactly; STRONG (64/GPU) reuses the 256/GPU compute profile (approximate: the model has no small-batch stall term, so strong under-predicts a little more).",
+  "note": "predict_energy anchors P_dyn to the current-coefficient 1-GPU values (native 464.85 W, pytorch 538.07 W; see validation_1gpu_20260706.json); the 4-GPU rows add only the intra-node comm term. Under-prediction is the documented stall/wait gap (native in-sample ~-12..-16%, pytorch cross-stack ~-4..-6%).",
+  "images_measured": 3843072,
+  "ngpu": 4,
+  "nnodes": 1,
+  "P_idle_W_per_gpu": 139.649,
+  "results": {
+    "native_weak": {
+      "run_id": "53061751", "mode": "weak", "throughput_img_s": 4770.1,
+      "P_total_pred_pergpu_W": 606.5, "P_total_meas_pergpu_W": 690.5,
+      "P_dyn_pred_pergpu_W": 466.9, "P_dyn_meas_pergpu_W": 552.9, "err_power_pct": -15.6,
+      "E_total_pred_J": 1954656, "E_total_meas_J": 2223750,
+      "j_per_image_pred": 0.5086, "j_per_image_meas": 0.5786, "err_jperimg_pct": -12.1,
+      "pred_breakdown_pergpu_W": {"mfma_fp32": 211.6, "gemm": 112.1, "hbm": 141.2, "comm": 2.0}
+    },
+    "native_strong": {
+      "run_id": "53061753", "mode": "strong", "throughput_img_s": 4344.9,
+      "P_total_pred_pergpu_W": 606.3, "P_total_meas_pergpu_W": 672.7,
+      "P_dyn_pred_pergpu_W": 466.7, "P_dyn_meas_pergpu_W": 532.9, "err_power_pct": -12.4,
+      "E_total_pred_J": 2144970, "E_total_meas_J": 2377240,
+      "j_per_image_pred": 0.5581, "j_per_image_meas": 0.6186, "err_jperimg_pct": -9.8,
+      "pred_breakdown_pergpu_W": {"mfma_fp32": 211.6, "gemm": 112.1, "hbm": 141.2, "comm": 1.8},
+      "caveat": "reuses 256/GPU compute profile; no small-batch stall term"
+    },
+    "pytorch_weak": {
+      "run_id": "53061754", "mode": "weak", "throughput_img_s": 5577.7,
+      "P_total_pred_pergpu_W": 680.1, "P_total_meas_pergpu_W": 719.1,
+      "P_dyn_pred_pergpu_W": 540.4, "P_dyn_meas_pergpu_W": 577.8, "err_power_pct": -6.5,
+      "E_total_pred_J": 1874344, "E_total_meas_J": 1980370,
+      "j_per_image_pred": 0.4877, "j_per_image_meas": 0.5153, "err_jperimg_pct": -5.4,
+      "pred_breakdown_pergpu_W": {"mfma_fp32": 231.4, "gemm": 124.8, "hbm": 181.9, "comm": 2.3}
+    },
+    "pytorch_strong": {
+      "run_id": "53061755", "mode": "strong", "throughput_img_s": 5263.1,
+      "P_total_pred_pergpu_W": 679.9, "P_total_meas_pergpu_W": 708.3,
+      "P_dyn_pred_pergpu_W": 540.3, "P_dyn_meas_pergpu_W": 568.8, "err_power_pct": -5.0,
+      "E_total_pred_J": 1985819, "E_total_meas_J": 2066670,
+      "j_per_image_pred": 0.5167, "j_per_image_meas": 0.5378, "err_jperimg_pct": -3.9,
+      "pred_breakdown_pergpu_W": {"mfma_fp32": 231.4, "gemm": 124.8, "hbm": 181.9, "comm": 2.2},
+      "caveat": "reuses 256/GPU compute profile; no small-batch stall term"
+    }
+  },
+  "summary": {
+    "err_jperimg_pct": {"native_weak": -12.1, "native_strong": -9.8, "pytorch_weak": -5.4, "pytorch_strong": -3.9},
+    "mean_abs_err_jperimg_pct": 7.8,
+    "direction": "model under-predicts energy (stall/wait term not yet in the model); native in-sample bias larger than pytorch cross-stack, consistent with 1-GPU/8-GPU validations"
+  }
+}

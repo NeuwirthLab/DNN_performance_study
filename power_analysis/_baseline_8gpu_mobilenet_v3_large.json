@@ -1,0 +1,58 @@
+{
+  "results": {
+    "pytorch (cross-stack)": {
+      "ngpu": 8,
+      "busy_s": 1.0542866186666666,
+      "train_s": 179.708,
+      "busy_s_by_class": {
+        "mfma": 0.4822768742,
+        "gemm": 0.11684728700000001,
+        "hbm": 0.4512501209333334,
+        "comm": 0.0
+      },
+      "work_rates": {
+        "R_fp32": 6194087190387.357,
+        "R_fp16": 0.0,
+        "R_bf16": 0.0,
+        "R_gemm": 4152325145130.3003,
+        "R_gemm_bf16": 0.0,
+        "R_hbm": 617584959588.5479,
+        "R_comm": 706988149.9023438
+      },
+      "pred_power_pergpu_W": {
+        "mfma_fp32": 56.76880909990013,
+        "mfma_fp16": 0.0,
+        "mfma_bf16": 0.0,
+        "gemm": 48.71507860266868,
+        "gemm_bf16": 0.0,
+        "hbm": 174.1589586039705,
+        "comm": 3.116403764769531,
+        "total": 282.7592500713088
+      },
+      "P_dyn_pred_pergpu_W": 282.7592500713088,
+      "P_dyn_meas_pergpu_W": 472.94291294767066,
+      "err_power_pct": -40.212815895901784,
+      "E_dyn_pred_J": 406512.79449451814,
+      "E_dyn_meas_J": 679933.0,
+      "E_idle_J": 200768.339936,
+      "P_idle_W": 139.649,
+      "E_total_pred_J": 607281.1344305181,
+      "E_total_meas_J": 880701.3399360001,
+      "err_dyn_pct": -40.21281589590178,
+      "err_total_pct": -31.045735155274222,
+      "steps": 41.0,
+      "steps_src": "anchor 'Cross-entropy loss'",
+      "t_step_s": 0.02571430777235772,
+      "work_per_step": {
+        "F_mfma_fp32": 159276664382.43903,
+        "F_mfma_bf16": 0.0,
+        "B_hbm": 15880769726.439024,
+        "V_ar": 0.0
+      },
+      "unknown_labels": [
+        "Cijk_S_PostGSU16_mod16",
+        "distribution_nullary_kernel<float, float"
+      ]
+    }
+  }
+}

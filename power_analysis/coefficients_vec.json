@@ -1,0 +1,18 @@
+{
+  "e_vec": 3.933589033892953e-11,
+  "e_vec_units": "J/FLOP",
+  "f_vec_window": 5481845000000.0,
+  "e_vec_note": "ROUTE A: e_vec = dE/F_vec from measured VALU counters (PMC pt_amd_53070169, 15-pass sandbox re-run, 2026-07-07). F_vec per Eq.(fvec) = 64*(ADD+MUL+TRANS+2*FMA)_F32, MFMA-ratio-scaled to the power window. Inside the 18..130 pJ/FLOP analytic bracket. Fitted on ONE network (MobileNetV2 1-GPU): applying it back is 0% by construction; held-out depthwise validation (mobilenet_v3_large, jobs 53074000/53074001) required before any paper claim. Cross-application to RN-101's measured F_vec (pt_amd_52858992, conv-class-dominated too) overshoots its residual ~1.9x (implied 20.9 pJ/FLOP): do NOT add this term to dense nets, whose vector work is already partly absorbed in the hybrid e_hbm.",
+  "deficit_W": 193.1,
+  "deficit_window_s": 1.1166,
+  "t_zero_mfma_s": 0.2636,
+  "t_zero_plus_wrw_s": 0.4167,
+  "allocation_analysis": {
+    "zero_mfma_only_implied_W": 818.2,
+    "zero_mfma_only_verdict": "KILLED: exceeds device cap; deficit not confined to these kernels",
+    "zero_plus_wrw_implied_W": 517.5,
+    "zero_plus_wrw_verdict": "admissible, but fitted to one run: 0% by construction, no predictive content; NOT a coefficient"
+  },
+  "scope": "CANDIDATE coefficient (Route A, single-network fit). Do not report a corrected MobileNetV2 number: 0% by construction on the fit target. Becomes a claim only after held-out depthwise validation passes.",
+  "provenance": "fit_e_vec.py on validation_mobilenet_v2.json (PMC 52859934, power 52859935); deficit 193.1 W over 1.117 s window; F_vec from PMC pt_amd_53070169"
+}

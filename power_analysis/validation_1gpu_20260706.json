@@ -1,0 +1,109 @@
+{
+  "coefficients_file": "/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/power_analysis/coefficients_final.json",
+  "results": {
+    "native (in-sample)": {
+      "ngpu": 1.0,
+      "busy_s": 1.7276937559999999,
+      "train_s": 1112.16,
+      "busy_s_by_class": {
+        "mfma": 0.7277120412222225,
+        "gemm": 0.4093355058888889,
+        "hbm": 0.5864013683333335,
+        "comm": 0.0029788273333333335
+      },
+      "work_rates": {
+        "R_fp32": 23083412850563.086,
+        "R_fp16": 0.0,
+        "R_bf16": 0.0,
+        "R_gemm": 9554337131419.256,
+        "R_gemm_bf16": 0.0,
+        "R_hbm": 500720592678.9262,
+        "R_comm": 0.0
+      },
+      "pred_power_pergpu_W": {
+        "mfma_fp32": 211.55947877541067,
+        "mfma_fp16": 0.0,
+        "mfma_bf16": 0.0,
+        "gemm": 112.09148322581072,
+        "gemm_bf16": 0.0,
+        "hbm": 141.2032071354572,
+        "comm": 0.0,
+        "total": 464.8541691366786
+      },
+      "P_dyn_pred_pergpu_W": 464.8541691366786,
+      "P_dyn_meas_pergpu_W": 549.1673859876277,
+      "err_power_pct": -15.352917708199186,
+      "E_dyn_pred_J": 516992.2127470485,
+      "E_dyn_meas_J": 610762.0,
+      "E_idle_J": 155312.03184,
+      "P_idle_W": 139.649,
+      "E_total_pred_J": 672304.2445870485,
+      "E_total_meas_J": 766074.0318400001,
+      "err_dyn_pct": -15.352917708199179,
+      "err_total_pct": -12.240303594122611,
+      "steps": 4.0,
+      "steps_src": "anchor 'Cross-entropy loss'",
+      "t_step_s": 0.43192343899999996,
+      "work_per_step": {
+        "F_mfma_fp32": 9970267062272.0,
+        "F_mfma_bf16": 0.0,
+        "B_hbm": 216272960368.0,
+        "V_ar": 778060656.0
+      },
+      "unknown_labels": [
+        "SoftMaxCommon"
+      ]
+    },
+    "pytorch (cross-stack)": {
+      "ngpu": 1.0,
+      "busy_s": 1.7702806276000003,
+      "train_s": 810.02,
+      "busy_s_by_class": {
+        "mfma": 0.8689613328666667,
+        "gemm": 0.3051891983999999,
+        "hbm": 0.5870230885333333,
+        "comm": 0.0
+      },
+      "work_rates": {
+        "R_fp32": 25247090528891.46,
+        "R_fp16": 0.0,
+        "R_bf16": 0.0,
+        "R_gemm": 10638011444535.336,
+        "R_gemm_bf16": 0.0,
+        "R_hbm": 644955032773.4716,
+        "R_comm": 0.0
+      },
+      "pred_power_pergpu_W": {
+        "mfma_fp32": 231.38958469729025,
+        "mfma_fp16": 0.0,
+        "mfma_bf16": 0.0,
+        "gemm": 124.80515026728857,
+        "gemm_bf16": 0.0,
+        "hbm": 181.87731924211897,
+        "comm": 0.0,
+        "total": 538.0720542066978
+      },
+      "P_dyn_pred_pergpu_W": 538.0720542066978,
+      "P_dyn_meas_pergpu_W": 591.7940297770425,
+      "err_power_pct": -9.077816413691163,
+      "E_dyn_pred_J": 435849.12534850935,
+      "E_dyn_meas_J": 479365.0,
+      "E_idle_J": 113118.48298,
+      "P_idle_W": 139.649,
+      "E_total_pred_J": 548967.6083285094,
+      "E_total_meas_J": 592483.48298,
+      "err_dyn_pct": -9.077816413691165,
+      "err_total_pct": -7.3446561636823775,
+      "steps": 41.0,
+      "steps_src": "anchor 'Cross-entropy loss'",
+      "t_step_s": 0.04317757628292684,
+      "work_per_step": {
+        "F_mfma_fp32": 1090108177233.1708,
+        "F_mfma_bf16": 0.0,
+        "B_hbm": 27847595126.634148,
+        "V_ar": 0.0
+      },
+      "unknown_labels": []
+    }
+  }
+}

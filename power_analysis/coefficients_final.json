@@ -1,0 +1,69 @@
+{
+  "e_mfma_fp32": 9.165e-12,
+  "e_mfma_bf16": 3.426e-12,
+  "e_hbm": 2.82e-10,
+  "e_hbm_driver_rate_only": 1.5979868797993366e-10,
+  "e_gemm": 1.1732e-11,
+  "e_comm": 4.408e-09,
+  "P_idle_W": 139.649,
+  "units": {
+    "e_mfma_fp32": "J/FLOP",
+    "e_mfma_bf16": "J/FLOP",
+    "e_gemm": "J/FLOP",
+    "e_hbm": "J/byte [HYBRID calibration: P_dyn_bnrelu_isolation / R_hbm_pmc_training]",
+    "e_hbm_driver_rate_only": "J/byte [driver logical-rate calibration; 3.389 TB/s from isolation; DO NOT USE for PMC-rate validation]",
+    "e_comm": "J/byte per GPU [= P_dyn_aggregate/8 / work_rate_per_GPU; from 8-GPU allreduce loop job 52611886]",
+    "P_idle_W": "W per GPU",
+    "e_mfma_fp16": "J/FLOP",
+    "e_gemm_bf16": "J/FLOP",
+    "e_comm_2node": "J/byte per GPU [PENDING \u2014 needs in-situ compute-bound 2-node delta]"
+  },
+  "provenance": {
+    "_campaign": "REPEAT-MEAN ADOPTION 2026-07-06: central values switched from the original single-run campaign (run_52610442/52610703/52611886; short windows fc 26.6s@8s-warmup, conv-bf16 18.7s, bnrelu 15.7s; fc run boost-transient-contaminated at 652.6W/1646MHz) to the n=3 repeat-campaign means of runs 52859893-901 (30s warmup; windows conv-fp32 ~285s, conv-bf16 ~119s, bnrelu ~101s, allreduce ~92-95s compliant; fc 32.5s still <60s criterion, CoV 0.2% -- disclosed limitation). Spreads in TABLE1_error_bars.txt. Prior values preserved in coefficients_final.json.bak_pre_repeatmeans.",
+    "e_mfma_fp32": "mean of runs 52859893/894/895 conv_fp32 loops (n=3, CoV 0.5%); prior single-run value 9.054e-12 (run_52610442, 44.3s window)",
+    "e_mfma_bf16": "mean of runs 52859893/894/895 conv_bf16 loops (n=3, CoV 0.6%); prior single-run value 3.150e-12 (run_52610442, 18.7s window)",
+    "e_gemm": "mean of runs 52859896/897/898 fc loops (n=3, CoV 0.2%, 32.5s windows -- sub-60s, CL_ITERS never raised for fc); prior single-run value 1.3062e-11 (run_52610703, 26.6s window, 8s warmup, boost-contaminated)",
+    "e_comm": "mean of runs 52859899/900/901 allreduce loops (n=3, CoV 3.5%, 92-95s windows), per-GPU = aggregate/8; prior single-run value 4.131e-9 (run_52611886)",
+    "e_hbm": "HYBRID: P_dyn_bnrelu_isolation (run_52610442: ~548W at R_logical=3.389 TB/s) divided by R_hbm_pmc_training (5.007e11 B/s from TCC_EA0 in native_in1k_retry_52488168 full-step PMC). Direct bnrelu isolation PMC fails on gfx942 (rocprofv3 SIGSEGV for ALL counter types on MIOpen BN kernels, confirmed jobs 52612342). Value 282 pJ/byte implies ~42% L2 hit rate in BN isolation vs full-step PMC (physically plausible: later-stage feature maps fit in 48MB L2). Cross-validation: P_hbm_pred = 282e-12 \u00d7 5.007e11 = 141W \u2713 native in-sample; P_hbm_pred = 282e-12 \u00d7 6.45e11 = 182W \u2713 PyTorch cross-stack.",
+    "e_comm_2node": "RETRACTED bench value 9.564e-9 (was P_dyn_pergpu/algbw from pure rccl all_reduce_perf). WRONG: the 70 W/GPU bench dynamic is GPU idle-spin waiting on InfiniBand, not gradient-byte energy, and it ignores DDP compute/comm overlap. Correct method = in-situ matched compute-bound delta: e_comm_2node = (P_dyn_pergpu_2node - P_dyn_pergpu_1node) * t_step / V_ar, both runs compute-bound at identical per-GPU batch (256). PENDING a compute-bound 2-node run on the real 1.28M train set (in ImageNet-1K/imagenet-object-localization-challenge.zip). Until then nnodes>=2 falls back to intra-node e_comm=4.131e-9 (conservative; comm is <1% of total dynamic energy)."
+  },
+  "validation_1gpu": {
+    "native_in_sample": {
+      "P_pred_W": 475,
+      "P_meas_W": 549.2,
+      "err_power_pct": -13.6,
+      "err_energy_pct": -10.8,
+      "source_job": "sweep_fp32_52393654/strong_gpu1_r1"
+    },
+    "pytorch_cross_stack": {
+      "P_pred_W": 549,
+      "P_meas_W": 591.8,
+      "err_power_pct": -7.2,
+      "err_energy_pct": -5.8,
+      "source_job": "sweep_fp32_52393655/strong_gpu1_r1 (REAL 1-GPU companion of native sweep_fp32_52393654; supersedes powercap_52476069_1gpu_estimate)"
+    }
+  },
+  "validation_8gpu": {
+    "native_8gpu": {
+      "P_pred_W": 477,
+      "P_meas_W": 518.6,
+      "err_power_pct": -8.0,
+      "err_energy_pct": -6.3,
+      "source_job": "powercap_52476068",
+      "method": "1-GPU PMC rates + e_comm term; no re-extraction"
+    },
+    "pytorch_8gpu": {
+      "P_pred_W": 552,
+      "P_meas_W": 555.3,
+      "err_power_pct": -0.6,
+      "err_energy_pct": -0.5,
+      "source_job": "powercap_52476069",
+      "method": "1-GPU PMC rates + e_comm term; no re-extraction"
+    }
+  },
+  "e_mfma_fp16": 2.675e-12,
+  "e_mfma_fp16_note": "MEASURED 2026-07-07 (was proxied = e_mfma_bf16 3.426e-12). Matched-duty PyTorch probe job 53101966 (fp16_conv_energy_probe.py, RN-50 fwd+bwd, lr=0, ~100% gfx_activity, ABBA x2): at equal power (fp16 558.5 vs bf16 557.7 W) fp16 runs +7.8% faster, so the whole-network J/img is 0.929x BF16. FP16 and BF16 move IDENTICAL bytes (both 16-bit), so the ~7% saving falls entirely on the precision-dependent matrix class -> the convolution coefficient drops ~22%, not 7%, to 2.675e-12 (~2.68 pJ/FLOP). GradScaler vs no-scaler power within 0.8% -> gradient-underflow ruled out. Brings the FP16 held-out total-energy error 16.6% -> 7.7%, INSIDE the +/-10% envelope; the small residual is shared utilization-blindness.",
+  "e_gemm_bf16": 4.386e-12,
+  "e_gemm_bf16_note": "ratio-scaled from FP32 e_gemm by the BF16/FP32 MFMA efficiency: 11.732e-12 x (3.426/9.165) = 4.386e-12 (repeat-mean basis, 2026-07-06). The FC GEMM isolation (job 52861076) measures 8.17 pJ/FLOP but is overhead-bound (tiny 2048x1000x256 GEMM at ~1.2% of BF16 peak) and overprices the large 1x1 convs that dominate the GEMM class; the full BF16 run independently implies ~4.3 pJ/FLOP, matching the ratio-derived value.",
+  "e_comm_2node": null
+}

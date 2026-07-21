@@ -1,0 +1,172 @@
+{
+  "coefficients_file": "coefficients_final.json",
+  "p_active_source": "coefficients_active_base.json (86.19 W; native-uncapped scope; applied here as a SCOPE TEST only, not adopted)",
+  "targets": {
+    "ResNet-101": {
+      "pmc": "pt_amd_52858992",
+      "power_run": "pytorch_fp32_gpu1_52858993",
+      "old_json": "validation_rn101_1gpu_full.json",
+      "old_err_total_pct": -7.768045299857419,
+      "v0": {
+        "err_power_pct": -11.455963264923897,
+        "err_total_pct": -9.297437837894137,
+        "P_dyn_pred_pergpu_W": 532.6025755132707,
+        "P_dyn_meas_pergpu_W": 601.5115135385328,
+        "pred_power_pergpu_W": {
+          "mfma_fp32": 230.87006658019354,
+          "mfma_fp16": 0.0,
+          "mfma_bf16": 0.0,
+          "gemm": 123.68969011820059,
+          "gemm_bf16": 0.0,
+          "hbm": 178.04281881487657,
+          "comm": 0.0,
+          "total": 532.6025755132707
+        }
+      },
+      "residual_W": 68.90893802526205,
+      "gate": {
+        "reference": -7.768045299857419,
+        "source": "stored validation_rn101_1gpu_full.json",
+        "passed": false
+      },
+      "v1_p_active": {
+        "err_power_pct": 2.8729395174961994,
+        "err_total_pct": 2.3316220520481705,
+        "note": "scope test only; P_active is native-uncapped, NOT adopted for PyTorch"
+      }
+    },
+    "VGG-16": {
+      "pmc": "pt_amd_52859962",
+      "power_run": "pytorch_fp32_gpu1_52859937",
+      "old_json": "validation_vgg16.json",
+      "old_err_total_pct": 5.10144876181724,
+      "v0": {
+        "err_power_pct": 6.902293264297062,
+        "err_total_pct": 5.582383411830978,
+        "P_dyn_pred_pergpu_W": 631.3936980122975,
+        "P_dyn_meas_pergpu_W": 590.6268974523193,
+        "pred_power_pergpu_W": {
+          "mfma_fp32": 551.5338373914913,
+          "mfma_fp16": 0.0,
+          "mfma_bf16": 0.0,
+          "gemm": 28.459272087703116,
+          "gemm_bf16": 0.0,
+          "hbm": 51.40058853310312,
+          "comm": 0.0,
+          "total": 631.3936980122975
+        }
+      },
+      "residual_W": -40.76680055997815,
+      "gate": {
+        "reference": 5.10144876181724,
+        "source": "stored validation_vgg16.json",
+        "passed": false
+      },
+      "v1_p_active": {
+        "err_power_pct": 21.49526225568269,
+        "err_total_pct": 17.38477211186713,
+        "note": "scope test only; P_active is native-uncapped, NOT adopted for PyTorch"
+      }
+    },
+    "MobileNetV2": {
+      "pmc": "pt_amd_52859934",
+      "power_run": "pytorch_fp32_gpu1_52859935",
+      "old_json": "validation_mobilenet_v2.json",
+      "old_err_total_pct": -29.449271917652126,
+      "v0": {
+        "err_power_pct": -38.38888171737528,
+        "err_total_pct": -30.196704362011573,
+        "P_dyn_pred_pergpu_W": 317.14445526593624,
+        "P_dyn_meas_pergpu_W": 514.7519865020464,
+        "pred_power_pergpu_W": {
+          "mfma_fp32": 56.733803362395214,
+          "mfma_fp16": 0.0,
+          "mfma_bf16": 0.0,
+          "gemm": 45.687694874304206,
+          "gemm_bf16": 0.0,
+          "hbm": 214.72295702923682,
+          "comm": 0.0,
+          "total": 317.14445526593624
+        }
+      },
+      "residual_W": 197.60753123611016,
+      "gate": {
+        "reference": -29.449271917652126,
+        "source": "stored validation_mobilenet_v2.json",
+        "passed": false
+      },
+      "v1_p_active": {
+        "err_power_pct": -21.644895825121257,
+        "err_total_pct": -17.025880696126013,
+        "note": "scope test only; P_active is native-uncapped, NOT adopted for PyTorch"
+      }
+    },
+    "ResNet-50 BF16": {
+      "pmc": "pt_amd_52859963",
+      "power_run": "pytorch_amp_bfloat16_gpu1_52859940",
+      "old_json": "validation_rn50_bf16.json",
+      "old_err_total_pct": 34.628076640686764,
+      "v0": {
+        "err_power_pct": 6.559035850293184,
+        "err_total_pct": 5.06146128080575,
+        "P_dyn_pred_pergpu_W": 502.9393020482031,
+        "P_dyn_meas_pergpu_W": 471.9818437122424,
+        "pred_power_pergpu_W": {
+          "mfma_fp32": 5.311285534398645,
+          "mfma_fp16": 0.0,
+          "mfma_bf16": 207.4485398381032,
+          "gemm": 6.739258184894022,
+          "gemm_bf16": 99.7397103421421,
+          "hbm": 183.70050814866508,
+          "comm": 0.0,
+          "total": 502.9393020482031
+        }
+      },
+      "residual_W": -30.957458335960723,
+      "gate": {
+        "reference": 3.1,
+        "source": "+3.1 (PRECISION_gemm_fix.md L35, post-split re-run, never persisted)",
+        "passed": false
+      },
+      "v1_p_active": {
+        "err_power_pct": 24.82033152262167,
+        "err_total_pct": 19.1532947594572,
+        "note": "scope test only; P_active is native-uncapped, NOT adopted for PyTorch"
+      }
+    },
+    "ResNet-50 FP16": {
+      "pmc": "pt_amd_52861196",
+      "power_run": "pytorch_amp_float16_gpu1_52861197",
+      "old_json": "validation_rn50_fp16_noscaler_long.json",
+      "old_err_total_pct": 13.941094219537998,
+      "v0": {
+        "err_power_pct": 21.721431517056065,
+        "err_total_pct": 16.560194535348504,
+        "P_dyn_pred_pergpu_W": 545.4017350267394,
+        "P_dyn_meas_pergpu_W": 448.0737107912797,
+        "pred_power_pergpu_W": {
+          "mfma_fp32": 0.0,
+          "mfma_fp16": 237.39936788301824,
+          "mfma_bf16": 0.0,
+          "gemm": 0.0,
+          "gemm_bf16": 104.16146682121988,
+          "hbm": 203.8409003225013,
+          "comm": 0.0,
+          "total": 545.4017350267394
+        }
+      },
+      "residual_W": -97.32802423545968,
+      "gate": {
+        "reference": 13.941094219537998,
+        "source": "stored validation_rn50_fp16_noscaler_long.json",
+        "passed": false
+      },
+      "v1_p_active": {
+        "err_power_pct": 40.957105899244645,
+        "err_total_pct": 31.225273562830417,
+        "note": "scope test only; P_active is native-uncapped, NOT adopted for PyTorch"
+      }
+    }
+  },
+  "gates_all_passed": false
+}

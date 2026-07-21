@@ -1,0 +1,96 @@
+{
+  "e_mfma_fp32": null,
+  "e_mfma_bf16": null,
+  "e_gemm": null,
+  "e_hbm": null,
+  "e_comm": 3.387615977417731e-08,
+  "e_comm_2node": null,
+  "P_idle_W": 137.97312499999998,
+  "units": {
+    "e_mfma_fp32": "J/FLOP",
+    "e_mfma_bf16": "J/FLOP",
+    "e_gemm": "J/FLOP",
+    "e_hbm": "J/byte",
+    "e_comm": "J/byte",
+    "e_comm_2node": "J/byte",
+    "P_idle_W": "W per GPU"
+  },
+  "provenance": {
+    "runs": {
+      "e_mfma_fp32": {
+        "status": "MISSING",
+        "looked_for": [
+          "conv_fp32",
+          "conv-fp32",
+          "mfma_fp32",
+          "convfp32",
+          "fp32_conv"
+        ]
+      },
+      "e_mfma_bf16": {
+        "status": "MISSING",
+        "looked_for": [
+          "conv_bf16",
+          "conv-bf16",
+          "mfma_bf16",
+          "convbf16",
+          "bf16_conv"
+        ]
+      },
+      "e_gemm": {
+        "status": "MISSING",
+        "looked_for": [
+          "fc",
+          "fc-gemm",
+          "fcgemm",
+          "gemm"
+        ]
+      },
+      "e_hbm": {
+        "status": "MISSING",
+        "looked_for": [
+          "bn_relu",
+          "bnrelu",
+          "hbm",
+          "bandwidth",
+          "bn"
+        ]
+      },
+      "e_comm": {
+        "run_dir": "power_analysis/results/coeff/run_52859901/cap_default/allreduce",
+        "work_term": "V_ar",
+        "work_total": 4533778356928.0,
+        "busy_s": 91.8752,
+        "class_busy_frac": 1.0,
+        "E_dyn_J": 153587.0,
+        "train_s": 91.8752,
+        "P_dyn_W": 1671.6915990386958,
+        "work_rate": 49347140000.0,
+        "work_per_iter": 102228100.0,
+        "work_unit": "bytes",
+        "coeff": 3.387615977417731e-08,
+        "method": "driver-rate (analytical work, P_dyn/work_rate)",
+        "mode": "allreduce",
+        "precision": "FP32"
+      },
+      "e_comm_2node": {
+        "run_dir": "/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/power_analysis/results/components/allreduce_2node",
+        "work_term": "V_ar",
+        "work_total": 0.0,
+        "busy_s": 0.0,
+        "class_busy_frac": null,
+        "E_dyn_J": 7208.53,
+        "train_s": 6.4468,
+        "coeff": null,
+        "note": "insufficient data (zero work or missing energy)",
+        "mode": "allreduce_2node",
+        "precision": "FP32"
+      }
+    },
+    "method": "coeff = P_dyn / work_rate (rate-based, clock/iteration independent)",
+    "conventions": {
+      "flop_per_mfma_mop": 512.0,
+      "bytes_per_hbm_req": 64.0
+    }
+  }
+}

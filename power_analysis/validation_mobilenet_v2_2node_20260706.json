@@ -1,0 +1,59 @@
+{
+  "coefficients_file": "/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/power_analysis/coefficients_final.json",
+  "results": {
+    "pytorch (cross-stack)": {
+      "ngpu": 16.0,
+      "busy_s": 1.116610119,
+      "train_s": 60.7697,
+      "busy_s_by_class": {
+        "mfma": 0.44137001099999995,
+        "gemm": 0.11534187500000001,
+        "hbm": 0.555671671,
+        "comm": 0.0
+      },
+      "work_rates": {
+        "R_fp32": 6190267688204.606,
+        "R_fp16": 0.0,
+        "R_bf16": 0.0,
+        "R_gemm": 3894280163169.4688,
+        "R_gemm_bf16": 0.0,
+        "R_hbm": 761428925635.5916,
+        "R_comm": 521807132.5683594
+      },
+      "pred_power_pergpu_W": {
+        "mfma_fp32": 56.733803362395214,
+        "mfma_fp16": 0.0,
+        "mfma_bf16": 0.0,
+        "gemm": 45.687694874304206,
+        "gemm_bf16": 0.0,
+        "hbm": 214.72295702923682,
+        "comm": 2.300125840361328,
+        "total": 319.44458110629756
+      },
+      "P_dyn_pred_pergpu_W": 319.44458110629756,
+      "P_dyn_meas_pergpu_W": 405.3829457772541,
+      "err_power_pct": -21.19930440245435,
+      "E_dyn_pred_J": 310600.82176728593,
+      "E_dyn_meas_J": 394160.0,
+      "E_idle_J": 135782.8453648,
+      "P_idle_W": 139.649,
+      "E_total_pred_J": 446383.66713208595,
+      "E_total_meas_J": 529942.8453648,
+      "err_dyn_pct": -21.199304402454352,
+      "err_total_pct": -15.767583044770399,
+      "steps": 41.0,
+      "steps_src": "anchor 'Cross-entropy loss'",
+      "t_step_s": 0.027234393146341462,
+      "work_per_step": {
+        "F_mfma_fp32": 168588183901.65854,
+        "F_mfma_bf16": 0.0,
+        "B_hbm": 20737054713.756096,
+        "V_ar": 0.0
+      },
+      "unknown_labels": [
+        "Cijk_S_PostGSU16_mod16",
+        "fused_dropout_kernel_vec<float, float, u"
+      ]
+    }
+  }
+}

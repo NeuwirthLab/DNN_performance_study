@@ -1,0 +1,58 @@
+{
+  "coefficients_file": "/tmp/claude-549389571/-work-scratch-av30nuci-resent50-performance-analysis-dl-models-resnet50/97fc14ac-4028-4307-9de7-98243a0d940e/scratchpad/coeffs_singlerate.json",
+  "results": {
+    "pytorch (cross-stack)": {
+      "ngpu": 1.0,
+      "busy_s": 0.9941371283333333,
+      "train_s": 551.214,
+      "busy_s_by_class": {
+        "mfma": 0.2615220433333334,
+        "gemm": 0.19131009633333332,
+        "hbm": 0.5296740646666664,
+        "comm": 0.0
+      },
+      "work_rates": {
+        "R_fp32": 579518334358.8265,
+        "R_fp16": 0.0,
+        "R_bf16": 60551237547607.47,
+        "R_gemm": 574433871879.8177,
+        "R_gemm_bf16": 22740472034232.125,
+        "R_hbm": 651420241661.9329,
+        "R_comm": 0.0
+      },
+      "pred_power_pergpu_W": {
+        "mfma_fp32": 5.311285534398645,
+        "mfma_fp16": 0.0,
+        "mfma_bf16": 207.4485398381032,
+        "gemm": 6.739258184894022,
+        "gemm_bf16": 266.7912179056113,
+        "hbm": 183.70050814866508,
+        "comm": 0.0,
+        "total": 669.9908096116723
+      },
+      "P_dyn_pred_pergpu_W": 669.9908096116723,
+      "P_dyn_meas_pergpu_W": 471.9818437122424,
+      "err_power_pct": 41.952665878425584,
+      "E_dyn_pred_J": 369308.31412928837,
+      "E_dyn_meas_J": 260163.0,
+      "E_idle_J": 76976.483886,
+      "P_idle_W": 139.649,
+      "E_total_pred_J": 446284.79801528837,
+      "E_total_meas_J": 337139.483886,
+      "err_dyn_pct": 41.95266587842559,
+      "err_total_pct": 32.37393403799439,
+      "steps": 41.0,
+      "steps_src": "anchor 'Cross-entropy loss'",
+      "t_step_s": 0.024247247032520326,
+      "work_per_step": {
+        "F_mfma_fp32": 14051724213.07318,
+        "F_mfma_bf16": 1468200814941.6584,
+        "B_hbm": 15795147521.560976,
+        "V_ar": 0.0
+      },
+      "unknown_labels": [
+        "_ZN2ck16tensor_operation6device12_GLOBAL"
+      ]
+    }
+  }
+}

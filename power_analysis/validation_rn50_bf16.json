@@ -1,0 +1,103 @@
+{
+  "coefficients_file": "/work/scratch/av30nuci/resent50/performance-analysis-dl-models-resnet50/power_analysis/coefficients_final.json",
+  "results": {
+    "native (in-sample)": {
+      "ngpu": 1,
+      "busy_s": 1.7276937559999999,
+      "train_s": null,
+      "busy_s_by_class": {
+        "mfma": 0.7277120412222225,
+        "gemm": 0.4093355058888889,
+        "hbm": 0.5864013683333335,
+        "comm": 0.0029788273333333335
+      },
+      "work_rates": {
+        "R_fp32": 23083412850563.086,
+        "R_bf16": 0.0,
+        "R_gemm": 9554337131419.256,
+        "R_hbm": 500720592678.9262,
+        "R_comm": 0.0
+      },
+      "pred_power_pergpu_W": {
+        "mfma_fp32": 209.00115471583103,
+        "mfma_bf16": 0.0,
+        "gemm": 124.79879463776628,
+        "hbm": 141.2032071354572,
+        "comm": 0.0,
+        "total": 475.0031564890545
+      },
+      "P_dyn_pred_pergpu_W": 475.0031564890545,
+      "P_dyn_meas_pergpu_W": null,
+      "err_power_pct": null,
+      "E_dyn_pred_J": null,
+      "E_dyn_meas_J": null,
+      "E_idle_J": null,
+      "P_idle_W": 141.0,
+      "E_total_pred_J": null,
+      "E_total_meas_J": null,
+      "err_dyn_pct": null,
+      "err_total_pct": null,
+      "steps": 4.0,
+      "steps_src": "anchor 'Cross-entropy loss'",
+      "t_step_s": 0.43192343899999996,
+      "work_per_step": {
+        "F_mfma_fp32": 9970267062272.0,
+        "F_mfma_bf16": 0.0,
+        "B_hbm": 216272960368.0,
+        "V_ar": 778060656.0
+      },
+      "unknown_labels": [
+        "SoftMaxCommon"
+      ]
+    },
+    "pytorch (cross-stack)": {
+      "ngpu": 1.0,
+      "busy_s": 0.9941371283333333,
+      "train_s": 551.214,
+      "busy_s_by_class": {
+        "mfma": 0.2615220433333334,
+        "gemm": 0.19131009633333332,
+        "hbm": 0.5296740646666664,
+        "comm": 0.0
+      },
+      "work_rates": {
+        "R_fp32": 579518334358.8265,
+        "R_bf16": 60551237547607.47,
+        "R_gemm": 23314905906111.94,
+        "R_hbm": 651420241661.9329,
+        "R_comm": 0.0
+      },
+      "pred_power_pergpu_W": {
+        "mfma_fp32": 5.247057783183705,
+        "mfma_bf16": 190.75869447217687,
+        "gemm": 304.5394059423868,
+        "hbm": 183.70050814866508,
+        "comm": 0.0,
+        "total": 684.2456663464125
+      },
+      "P_dyn_pred_pergpu_W": 684.2456663464125,
+      "P_dyn_meas_pergpu_W": 471.9818437122424,
+      "err_power_pct": 44.972878821919885,
+      "E_dyn_pred_J": 377165.7907294714,
+      "E_dyn_meas_J": 260163.0,
+      "E_idle_J": 77721.17400000001,
+      "P_idle_W": 141.0,
+      "E_total_pred_J": 454886.9647294714,
+      "E_total_meas_J": 337884.174,
+      "err_dyn_pct": 44.972878821919885,
+      "err_total_pct": 34.628076640686764,
+      "steps": 41.0,
+      "steps_src": "anchor 'Cross-entropy loss'",
+      "t_step_s": 0.024247247032520326,
+      "work_per_step": {
+        "F_mfma_fp32": 14051724213.07318,
+        "F_mfma_bf16": 1468200814941.6584,
+        "B_hbm": 15795147521.560976,
+        "V_ar": 0.0
+      },
+      "unknown_labels": [
+        "_ZN2ck16tensor_operation6device12_GLOBAL"
+      ]
+    }
+  }
+}
