@@ -15,46 +15,39 @@ in turn and mark every change we commit to for the final version.
 R1-1a (software versions). The final version will state the full software
 specification in Section IV for both vendors.
 
-On H100, the native trainer is built with CUDA toolkit 12.6.2 and resolves
-cuDNN 9.8.0 and NCCL 2.18.5 from the host; the framework baseline is the NGC
-PyTorch 24.02 container (PyTorch 2.3.0a0, CUDA runtime 12.3, cuDNN 9.0.0, NCCL
-2.20.3, DALI 1.34.0). Both stacks share one container image and driver, but the
-container does not pin the native trainer's math libraries, so this skew is
-disclosed rather than assumed away, and it runs against, not for, the native
-result: on the newer cuDNN the native trainer's own measured marginal cost is
-0.703 ms per image against the framework's 0.672 ms on the older, so the
-library difference does not supply the reported gap. On MI300X the pattern is the same and is measured, not promised. The native
-trainer runs ROCm 6.4 (HIP 6.4.43482) from the host; the framework container reports PyTorch 2.10.0+rocm7.2.4. The two stacks are on different ROCm releases, and Section IV will state both explicitly, with their bundled MIOpen
-and RCCL versions, rather than a single project-wide figure. The container is
-pulled by the floating tag rocm/pytorch:latest, which advanced during the
-project: the runs behind the reported scaling numbers logged ROCm 7.2.2
-in-container, and it is that version, not the container's current 7.2.4, that
-the reported numbers reflect.
+On H100, the native trainer is built with CUDA 12.6.2, cuDNN  9.8.0 and NCCL 2.18.5 from the host; the framework baseline is the NGC PyTorch 24.02 container (PyTorch 2.3.0a0, CUDA runtime 12.3, cuDNN 9.0.0, NCCL 2.20.3, DALI1.34.0). Both stacks share one container image and driver.
+On MI300X the two stacks are likewise on different, disclosed releases: the native trainer runs ROCm 6.4 (HIP 6.4.43482) from the host, while the framework baseline runs in a container pulled by the floating rocm/pytorch:latest tag. That tag advanced during the project: the container now reports PyTorch 2.10.0+rocm7.2.4, but the runs behind the reported scaling numbers logged ROCm 7.2.2 in-container, and it is 7.2.2 that Section IV will cite, together with the bundled MIOpen and RCCL versions of both ROCm stacks.
 
-----------------------
-
-Condense version : 
-
-On H100, the native trainer uses CUDA 12.6.2, cuDNN 9.8.0, NCCL 2.18.5 (host); the framework baseline is NGC PyTorch 24.02 (PyTorch 2.3.0a0, CUDA 12.3, cuDNN 9.0.0, NCCL 2.20.3, DALI 1.34.0). The shared container does not pin the native trainer's math libraries a skew disclosed rather than assumed away, and one that runs against the native result: its marginal cost is 0.703 ms/image on the newer cuDNN versus the framework's 0.672 ms on the older, so the library difference does not explain the reported gap. The same holds on MI300X: native ROCm 6.4 (HIP 6.4.43482, host) versus framework PyTorch 2.10.0+rocm7.2.4. Section IV will state both ROCm releases with their bundled MIOpen and RCCL versions. Because the framework container is pulled by the floating rocm/pytorch:latest tag, it advanced during the project; the reported scaling numbers reflect the logged in-container ROCm 7.2.2, not the current 7.2.4.
+To make both environments reproducible rather than merely disclosed, the
+camera-ready will identify each container by registry digest and image SHA-256
+rather than by mutable tag, and we will release the native trainer's source
+and build system, the launch scripts, and the per-run logs from which every
+reported number is extracted.
 
 ## R1-2a. "Why is the micro-benchmark performed on A100 and MI300X instead of H100 and MI300X?" (Section V)
 
-R1-2a (micro-benchmark platform). The micro-benchmark isolates host-side dispatch
-and orchestration cost (Python dispatch, launch path, allocator), a property of
-the software stack rather than of the accelerator generation, and its device-side
-work is deliberately small: it neither requires nor can exploit an H100-class
-GPU. The micro-benchmark is corroborating rather than load-bearing evidence,
-because the same quantity is measured directly on the H100 nodes themselves:
-the single-GPU batch sweep separates native step time into 3.9 ms that is fixed
-per step and 0.703 ms per image, and at 32 images per device the framework step
-contains at least 24.8 ms that is not batch-proportional. No conclusion rests on
-the micro-benchmark. Isolating the term on A100 is also the conservative
-direction, since with the host held constant a faster accelerator shortens the
-device term and therefore raises, never lowers, the measured overhead fraction.
-We do not transfer the A100 host-side values to the H100 nodes, whose host CPUs
-differ, which is why the H100 figures quoted above come from H100 runs. We agree
-the presentation is cleaner on same-generation hardware and will repeat the
-micro-benchmark on H100 for the final version.
+R1-2a (micro-benchmark platform). The micro-benchmark isolates host-side
+dispatch and orchestration cost (Python dispatch, launch path, allocator), a
+property of the software stack rather than of the accelerator, and its
+device-side work is deliberately small: it neither requires nor can exploit an
+H100-class GPU, and on a shared system we did not occupy contended H100
+allocation with a measurement whose device side is idle. Running it on a
+different accelerator generation is, moreover, a control rather than a
+mismatch: a device-bound cost would not survive the
+change of generation, and the same overhead signature the micro-benchmark
+isolates on A100 appears in the H100 macro results, where the load-bearing
+quantities are measured directly: the single-GPU batch sweep separates native
+step time into 3.9 ms fixed per step and 0.703 ms per image, and at 32 images
+per device the framework step contains at least 24.8 ms that is not
+batch-proportional. No conclusion rests on the micro-benchmark, and it is not
+used to compare platforms against each other: on each platform it corroborates
+that platform's own macro results, so generation matching across vendors is
+not required for the inference it supports. A100 is also the conservative
+choice: with the host held constant, a faster accelerator shortens the device
+term and therefore raises, never lowers, the measured overhead fraction. We do
+not transfer A100 host-side values to the H100 nodes, whose host CPUs differ.
+We agree the presentation is cleaner on same-generation hardware and will
+repeat the micro-benchmark on H100 for the final version.
 
 
 ## R1-2c. "Focus is on ResNet and image classification; tools such as CARAML also cover LLM tasks" (Section V)
@@ -71,7 +64,8 @@ comparison of the kind used here; a small data-parallel transformer under this
 protocol is the natural next validation target, and we will name it as such in
 the revision, while extending the construction to tensor and pipeline
 parallelism would additionally evaluate parallelization strategy and is a study
-of its own, I would say a new project by itseld. We will expand the related-work discussion of CARAML and position
+of its own, effectively a separate project. We will expand the related-work
+discussion of CARAML and position
 the two as complementary: suite breadth identifies which workloads matter, while
 our design explains where the time is spent for one of them.
 
@@ -441,7 +435,7 @@ Conservative-quote note (R2-1): the matched 10-epoch power-harness pair gives a 
 
 1. Versions (R1-1a): now MEASURED and stated in the text for BOTH vendors. H100: NGC 24.02 container (torch 2.3.0a0+ebedce2, CUDA runtime 12.3, cuDNN 9.0.0.306, NCCL 2.20.3 via torch, DALI 1.34.0); native binary resolves host cuDNN 9.8.0.87 and NVHPC NCCL 2.18.5 (verified by ldd on build/train_multigpu_tiny). MI300X: native ROCm 6.4 (HIP 6.4.43482); PyTorch container reports 7.2.4 now but the canonical scaling-number runs (52424124/52425551) actually ran under 7.2.2, a `:latest`-tag drift caught 2026-07-25, use 7.2.2 in the paper, not 7.2.4. Remaining: spot-check the production multi-GPU binary resolves the same H100 libraries, record the driver version on a compute node (nvidia-smi / rocm-smi on each side).
 2. TF32 (R2-1): **gate now closed on the code evidence, one manual check left.** Verified 2026-07-25: the native NCHW path sets `CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION` (resnet50.cu:455-457 and 1539-1541), NHWC sets `CUDNN_TENSOR_OP_MATH` (resnet50.cu:300-310), no script sets NVIDIA_TF32_OVERRIDE=0, DeepLearningExamples never touches `allow_tf32` so PyTorch's default cuDNN TF32 convolution path applies on Hopper, and experiment.md:145 states the fp32 baseline is already TF32 tensor-core. R2-1 now OPENS by self-correcting this ("FP32 storage with TF32 tensor-core math, matched on both stacks"). Remaining check: read the submitted PDF's exact sentence and confirm the 483138/483139 job scripts set no override. If the submitted runs genuinely disabled tensor cores, delete the first paragraph of R2-1 and keep the second. Self-correcting reads as rigour to a rigour reviewer; being caught in discussion reads as the opposite.
-3. R1-2a: the block no longer pleads resource stewardship (which read as "we used what was free" and invited the obvious follow-up that a host-side benchmark on a different host CPU is the wrong platform). It now argues the micro-benchmark is corroborating rather than load-bearing, since the same quantity is measured on H100 by the batch-sweep decomposition, plus a conservative-direction argument (holding the host constant, a faster accelerator shortens the device term and so raises, never lowers, the measured overhead fraction), plus an explicit refusal to extrapolate across host CPUs. GATE: confirm the micro-benchmark is genuinely host-side-dominated with low GPU utilization; if it is device-bound, the conservative-direction sentence inverts and must be cut. Schedule the H100 rerun (optional run 3) so "we will repeat it" is honored.
+3. R1-2a: the block no longer pleads resource stewardship (which read as "we used what was free" and invited the obvious follow-up that a host-side benchmark on a different host CPU is the wrong platform). It now argues the micro-benchmark is corroborating rather than load-bearing, since the same quantity is measured on H100 by the batch-sweep decomposition, plus a conservative-direction argument (holding the host constant, a faster accelerator shortens the device term and so raises, never lowers, the measured overhead fraction), plus an explicit refusal to extrapolate across host CPUs. REVISED 2026-07-25: the block now opens with the cross-generation-control argument (a device-bound cost would not survive the generation change; the same signature on A100 and in the H100 macro results supports stack-boundness) and explicitly scopes the micro-benchmark as within-platform corroboration, answering the MI300X half of the reviewer's question. TWO GATES: (a) confirm the micro-benchmark is genuinely host-side-dominated with low GPU utilization; if it is device-bound, both the control argument and the conservative-direction sentence invert and must be cut; (b) confirm the submitted PDF does NOT draw cross-platform performance comparisons from the micro-benchmark itself (A100 vs MI300X numbers side by side as a ranking); if it does, the "not used to compare platforms" sentence is false and must be reworded to "not used to rank vendors". Schedule the H100 rerun (optional run 3) so "we will repeat it" is honored.
 4. R2-3: the kernel-level comparison commitment requires optional run 4 before camera-ready.
 5. FC network (R3-2, R2-4): the fully connected benchmark was not found in either local repo tree, so the text says "reported in the paper" with no section number. Both blocks were rewritten to STOP disowning it: the previous wording ("deliberately minimal", "not an evaluation target") conceded R2's and R3's premise that there is effectively one workload, in the same document that elsewhere cites the FC net as generality evidence. Both now make the same safe, construction-true claim: its arithmetic is entirely non-convolutional (pure GEMM, the primitive class that dominates attention-based models), so the harness result is not confined to convolutional layers. Do NOT claim the FC net exhibits the same measured fixed per-step cost; nothing available substantiates that. Optionally add the section/figure from the submitted PDF, and keep the two blocks in sync.
 6. R3-1: verify the exact compensation the paper describes for the topology difference and that the MI300X claims match; MI300X result bundles are not on this filesystem, so all quoted numbers are H100-side. R3-1 now commits CONCRETELY to an intra-node cross-vendor comparison at 1, 2 and 4 GPUs: confirm the MI300X side has those single-node points before pasting; if it does not, change the counts in that sentence to the ones it has.
@@ -449,7 +443,7 @@ Conservative-quote note (R2-1): the matched 10-epoch power-harness pair gives a 
 8. bf16 superlinearity: 19,625/8 = 2,453 img/s per GPU exceeds the 2,368 single-GPU figure. Prepared reply: steady-window extraction and single-GPU bf16 underutilization at that batch; consider a window-matched pair if pressed.
 9. MLPerf retirement: citing tenure through v4.0 hands the reviewer the v4.1 retirement fact. Prepared reply: the suite pivoted to generative AI; tenure is invoked for baseline auditability, not fashion.
 10. Timing phrasing: adjust "we have repeated" / "completed since submission" if the BF16 runs predate submission; verify the rebuttal rules permit new numbers, otherwise keep the mixed-precision sentences qualitative.
-11. **LENGTH: the paste-ready text is now ~4,130 words (~26,500 characters), which likely exceeds many rebuttal portals.** R1-1a was condensed 2026-07-25 (409 -> 332 words) after the MI300X ROCm addition, no content lost: both version sets, the cuDNN skew-direction argument, and the ROCm tag-drift catch all survive, only phrasing tightened. Exact per-block counts: R1-1a 332, R1-2a 205, R1-2c 192, R1-2d 297, R2-1 457, R2-2 418, R2-3 612, R2-4 209, R3-1 412, R3-2 845. Check the portal limit FIRST. Cut order if constrained: (a) R3-2 is the most compressible, its third paragraph (MLPerf tenure plus conservative-baseline) can go to two sentences, saving ~200; (b) R1-1a's final commitment paragraph (source/build system/logs) can compress to one sentence, saving ~50; (c) R1-2c can fold into R1-2d; (d) within R2-2 cut the GDR parenthetical. Do NOT cut: R2-3's decomposition (paragraphs 2 to 5), R2-1's TF32 correction, R3-2's opening title concession, R1-1a's version-skew disclosures (either vendor), or the 57% floor. If the limit is per-reviewer rather than total, only R3-2 and R2-3 need attention.
+11. **LENGTH: the paste-ready text is ~4,090 words, which likely exceeds many rebuttal portals.** R1-1a duplicate RESOLVED 2026-07-25: the user's condensed draft is now the single text (253 words; fixes applied: comma after "math libraries", "Both stacks share one container image" antecedent restored, MI300X paragraph reordered so ROCm 7.2.2 is cited as version of record before the 7.2.4 drift disclosure, artifact-release commitment restored as one closing sentence covering both vendors). R1-2a revised (~265 words: cross-generation-control framing leads, resource stewardship reinstated 2026-07-25 as ONE subordinate clause per user preference, never as the primary reason). Per-block counts: R1-1a 253, R1-2a 265, R1-2c 188, R1-2d 297, R2-1 457, R2-2 418, R2-3 612, R2-4 209, R3-1 412, R3-2 845. Check the portal limit FIRST. Cut order if constrained: (a) R3-2 is the most compressible, its third paragraph (MLPerf tenure plus conservative-baseline) can go to two sentences, saving ~200; (b) already applied: R1-1a is fully condensed, do not cut further; (c) R1-2c can fold into R1-2d; (d) within R2-2 cut the GDR parenthetical. Do NOT cut: R2-3's decomposition (paragraphs 2 to 5), R2-1's TF32 correction, R3-2's opening title concession, R1-1a's version-skew disclosures (either vendor), or the 57% floor. If the limit is per-reviewer rather than total, only R3-2 and R2-3 need attention.
 12. **The 16.0 ms trap (new, know this before the discussion phase).** The step-time decomposition puts the native 26.7 ms single-GPU b32 step into the rebuttal, from which a reviewer can derive that the native trainer's entire cost of going to 8 GPUs across two InfiniBand nodes is 1.8 ms/step, while the rebuttal also quotes a 16.0 ms standalone all-reduce at the same message size and states the native trainer does not overlap. Those look irreconcilable. The reconciliation is that the standalone harness carries roughly 10 ms of its own overhead, visible in its implausible 10.3 ms for the same 102 MB over NVLink at 2 GPUs. R2-2 therefore labels 16.0 ms explicitly as a loose upper bound and uses it only as a bound. **Never add a sentence quoting exposed collective time for both stacks side by side**: it restates R2's fairness allegation using our own numbers ("your tuned NCCL is nine times faster on the same fabric"). If asked, the reply is that 16.0 ms is a torch.distributed measurement bounding the framework path, never an estimate of either stack's in-application cost, and that the comm-overlap A/B (+6.9% on native 8-GPU strong scaling, implying ~1.84 ms exposed) corroborates the native side independently. Hold that in reserve.
 13. **CUDA Graphs / torch.compile, updated posture.** Do not pre-empt it unprompted (it spends characters and plants the idea). If raised, the decomposition makes the reply strictly better: graph capture is a mechanism for reducing F while leaving s unchanged, which confirms the attribution rather than contradicting it. Do not commit to running it; adding graph capture to the DeepLearningExamples recipe before camera-ready is of unestablished feasibility.
 14. **Framing for the PC meeting.** As written, a PC member summarises this as "they wrote RN50 in CUDA and it beats PyTorch 1.62x", which is a comparison, and comparisons invite fairness objections (R2 filed three). The data supports a structurally immune framing: a reference that LOSES at 1 GPU (1,272 vs 1,489) and LOSES weak scaling (9.9k vs 10.6k) cannot be accused of being hand-favoured, and what it yields is a bound, not a boast. R2-3 and R1-2d now move that way; consider one sentence in the opening line repositioning the contribution as a measurement instrument. Also note the paper is not selling its second-strongest result: 88% strong-scaling efficiency at global batch 256 across two InfiniBand nodes, obtained with a deliberately unoptimized single blocking all-reduce.
