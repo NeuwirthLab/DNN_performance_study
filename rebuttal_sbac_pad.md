@@ -98,7 +98,7 @@ version will add a related-work paragraph making these contrasts explicit.
 
 ## R2-1. "Experiments use only FP32 with tensor cores disabled; results may not represent real training"
 
-R2-1 (FP32 only). One point of reviews are not correct - it requires correction first. The matched baseline is not tensor-core free: both stacks execute TF32 tensor-core math for
+R2-1 (FP32 only). This reviewer can miunderstood. The matched baseline is not tensor-core free: both stacks execute TF32 tensor-core math for
 convolutions on H100 and MI300X, since the native trainer sets the cuDNN tensor-op math
 type explicitly and the framework recipe runs with AMP disabled, under which
 PyTorch's default TF32 convolution path is active on Hopper. Neither stack sets
