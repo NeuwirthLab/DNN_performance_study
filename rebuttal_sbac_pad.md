@@ -13,29 +13,36 @@ in turn and mark every change we commit to for the final version.
 
 
 R1-1a (software versions). The final version will state the full software
-specification in Section IV. On H100, the native trainer is built with CUDA
-toolkit 12.6.2 and resolves the host toolchain's cuDNN 9.8.0 and NCCL 2.18.5 at
-run time; the framework baseline is the NGC PyTorch 24.02 container with its
-bundled PyTorch 2.3.0a0, CUDA runtime 12.3, cuDNN 9.0.0, NCCL 2.20.3, and DALI
-1.34.0, the NCCL figure being the copy bundled with PyTorch, which is the
-library the DDP runs use. Both stacks execute inside the same container image on the same driver and
-interconnect stack, although the container does not pin the native trainer's
-math libraries, which resolve from the host as listed. The version skew runs
-against rather than for the native result: on the newer cuDNN the native
-trainer's measured marginal cost is 0.703 ms per image against the framework's
-0.672 ms on the older, so the library difference does not supply the reported
-gap, which resides in the batch-independent per-step term. Section IV will additionally give
-the driver version, the compiler and build flags, the complete launch command
-and environment for both stacks, and the ROCm, MIOpen, and RCCL versions for the
-MI300X path.
+specification in Section IV for both vendors.
 
-Version strings alone do not make a run reproducible, so we commit for the final
-version to release the native trainer source and build system pinned to the
-exact commit used for the reported runs, the batch scripts for every reported
-experiment, the container identified by its immutable registry digest and by the
-SHA-256 of the image file actually executed rather than by its mutable tag, and
-the per-run logs together with the scripts that extract the plotted numbers from
-them.
+On H100, the native trainer is built with CUDA toolkit 12.6.2 and resolves
+cuDNN 9.8.0 and NCCL 2.18.5 from the host; the framework baseline is the NGC
+PyTorch 24.02 container (PyTorch 2.3.0a0, CUDA runtime 12.3, cuDNN 9.0.0, NCCL
+2.20.3, DALI 1.34.0). Both stacks share one container image and driver, but the
+container does not pin the native trainer's math libraries, so this skew is
+disclosed rather than assumed away, and it runs against, not for, the native
+result: on the newer cuDNN the native trainer's own measured marginal cost is
+0.703 ms per image against the framework's 0.672 ms on the older, so the
+library difference does not supply the reported gap.
+
+On MI300X the pattern is the same and is measured, not promised. The native
+trainer runs ROCm 6.4 (HIP 6.4.43482) from the host; the framework container
+reports PyTorch 2.10.0+rocm7.2.4. The two stacks are on different ROCm
+releases, and Section IV will state both explicitly, with their bundled MIOpen
+and RCCL versions, rather than a single project-wide figure. The container is
+pulled by the floating tag rocm/pytorch:latest, which advanced during the
+project: the runs behind the reported scaling numbers logged ROCm 7.2.2
+in-container, and it is that version, not the container's current 7.2.4, that
+the reported numbers reflect.
+
+Section IV will additionally give the driver version, compiler and build
+flags, and the complete launch command and environment for both stacks.
+Version strings alone do not make a run reproducible, so we commit to
+releasing the native trainer source and build system for both vendors, pinned
+to the exact commit used; the batch scripts for every reported experiment;
+both containers identified by registry digest and image SHA-256 rather than by
+their mutable tags, the fix the ROCm drift above calls for; and the per-run
+logs with the scripts that extract the plotted numbers.
 
 ## R1-2a. "Why is the micro-benchmark performed on A100 and MI300X instead of H100 and MI300X?" (Section V)
 
@@ -111,7 +118,7 @@ version will add a related-work paragraph making these contrasts explicit.
 ## R2-1. "Experiments use only FP32 with tensor cores disabled; results may not represent real training"
 
 R2-1 (FP32 only). One point of reviews are not correct - it requires correction first. The matched baseline is not tensor-core free: both stacks execute TF32 tensor-core math for
-convolutions on H100, since the native trainer sets the cuDNN tensor-op math
+convolutions on H100 and MI300X, since the native trainer sets the cuDNN tensor-op math
 type explicitly and the framework recipe runs with AMP disabled, under which
 PyTorch's default TF32 convolution path is active on Hopper. Neither stack sets
 an override that disables them. Section IV describes the configuration
@@ -424,6 +431,7 @@ Proposed title handling (R3-2), in order of preference:
 | NGC env | only NCCL_ASYNC_ERROR_HANDLING, NCCL_BLOCKING_WAIT, TORCH_NCCL_ASYNC_ERROR_HANDLING | `ngc_resnet_scaling_8gpu_benchmark.slurm:247-249` |
 | Native env | NCCL_SOCKET_IFNAME=ibp35s0, NCCL_ALGO=Tree, NCCL_P2P_LEVEL=NVL | `run_imagenet_multinode_scaling.sh:331-332` |
 | Host toolchain (R1-1a) | modules `cuda/12.6.2`, `cudnn` (9.8 bare-metal; container ships 9.0), `nvhpc` (NCCL) | `run_imagenet_multinode_scaling.sh:83-87`, `power_imagenet_multinode.slurm:37-38`, `experiment.md:3` |
+| MI300X toolchain (R1-1a) | native ROCm 6.4 (HIP 6.4.43482, host `rocm-6.4.0` install); framework container `pytorch_rocm.sif` from `docker://rocm/pytorch:latest`, current rebuild (Jun 27) reports ROCm 7.2.4 / PyTorch 2.10.0+rocm7.2.4, but the runs behind the REPORTED scaling numbers (jobs 52424124, 52425551, June) logged ROCm 7.2.2 in-container; the floating `:latest` tag drifted mid-project, so 7.2.2 is the version of record, not 7.2.4 | user-verified 2026-07-25 via `/opt/rocm/.info/version` + `torch.__version__` inside the sif, and job logs; scripts `ngc_resnet_benchmark_amd*.slurm`, `bf16_pytorch_amd.slurm`; log `run_multinode_amd_52980217.out` |
 | MLPerf tenure | RN50 in MLPerf Training v0.5 (2018) through v4.0 (2024); retired v4.1 (Nov 2024) | MLCommons training results repositories; never claim current status |
 
 Conservative-quote note (R2-1): the matched 10-epoch power-harness pair gives a larger native margin (503178 bf16 19,389 vs 503179 NGC fp16 15,241 img/s at 700 W, 1.27x), but the extraction method differs from the 1-epoch job 501961. Quoting NGC's most favorable number (18,937) keeps the claim unassailable.
@@ -438,7 +446,7 @@ Conservative-quote note (R2-1): the matched 10-epoch power-harness pair gives a 
 
 ## Pre-submission checklist
 
-1. Versions (R1-1a): now MEASURED and stated in the text. Container = NGC 24.02 (torch 2.3.0a0+ebedce2, CUDA runtime 12.3, cuDNN 9.0.0.306, NCCL 2.20.3 via torch, DALI 1.34.0); native binary resolves host cuDNN 9.8.0.87 and NVHPC NCCL 2.18.5 (verified by ldd on build/train_multigpu_tiny). Remaining: spot-check the production multi-GPU binary resolves the same libraries, record the driver version on a compute node (nvidia-smi), and fill the ROCm/MIOpen/RCCL versions from the MI300X system records (not in this repo tree).
+1. Versions (R1-1a): now MEASURED and stated in the text for BOTH vendors. H100: NGC 24.02 container (torch 2.3.0a0+ebedce2, CUDA runtime 12.3, cuDNN 9.0.0.306, NCCL 2.20.3 via torch, DALI 1.34.0); native binary resolves host cuDNN 9.8.0.87 and NVHPC NCCL 2.18.5 (verified by ldd on build/train_multigpu_tiny). MI300X: native ROCm 6.4 (HIP 6.4.43482); PyTorch container reports 7.2.4 now but the canonical scaling-number runs (52424124/52425551) actually ran under 7.2.2, a `:latest`-tag drift caught 2026-07-25, use 7.2.2 in the paper, not 7.2.4. Remaining: spot-check the production multi-GPU binary resolves the same H100 libraries, record the driver version on a compute node (nvidia-smi / rocm-smi on each side).
 2. TF32 (R2-1): **gate now closed on the code evidence, one manual check left.** Verified 2026-07-25: the native NCHW path sets `CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION` (resnet50.cu:455-457 and 1539-1541), NHWC sets `CUDNN_TENSOR_OP_MATH` (resnet50.cu:300-310), no script sets NVIDIA_TF32_OVERRIDE=0, DeepLearningExamples never touches `allow_tf32` so PyTorch's default cuDNN TF32 convolution path applies on Hopper, and experiment.md:145 states the fp32 baseline is already TF32 tensor-core. R2-1 now OPENS by self-correcting this ("FP32 storage with TF32 tensor-core math, matched on both stacks"). Remaining check: read the submitted PDF's exact sentence and confirm the 483138/483139 job scripts set no override. If the submitted runs genuinely disabled tensor cores, delete the first paragraph of R2-1 and keep the second. Self-correcting reads as rigour to a rigour reviewer; being caught in discussion reads as the opposite.
 3. R1-2a: the block no longer pleads resource stewardship (which read as "we used what was free" and invited the obvious follow-up that a host-side benchmark on a different host CPU is the wrong platform). It now argues the micro-benchmark is corroborating rather than load-bearing, since the same quantity is measured on H100 by the batch-sweep decomposition, plus a conservative-direction argument (holding the host constant, a faster accelerator shortens the device term and so raises, never lowers, the measured overhead fraction), plus an explicit refusal to extrapolate across host CPUs. GATE: confirm the micro-benchmark is genuinely host-side-dominated with low GPU utilization; if it is device-bound, the conservative-direction sentence inverts and must be cut. Schedule the H100 rerun (optional run 3) so "we will repeat it" is honored.
 4. R2-3: the kernel-level comparison commitment requires optional run 4 before camera-ready.
@@ -448,9 +456,9 @@ Conservative-quote note (R2-1): the matched 10-epoch power-harness pair gives a 
 8. bf16 superlinearity: 19,625/8 = 2,453 img/s per GPU exceeds the 2,368 single-GPU figure. Prepared reply: steady-window extraction and single-GPU bf16 underutilization at that batch; consider a window-matched pair if pressed.
 9. MLPerf retirement: citing tenure through v4.0 hands the reviewer the v4.1 retirement fact. Prepared reply: the suite pivoted to generative AI; tenure is invoked for baseline auditability, not fashion.
 10. Timing phrasing: adjust "we have repeated" / "completed since submission" if the BF16 runs predate submission; verify the rebuttal rules permit new numbers, otherwise keep the mixed-precision sentences qualitative.
-11. **LENGTH: the paste-ready text is now ~3,700 words (~23,500 characters), which may still exceed some rebuttal portals.** R1-2d was condensed 2026-07-25 from 439 to ~245 words (its (i)-(iii) numbers now cross-reference R2-2/R2-3 instead of repeating them). Check the portal limit FIRST. Remaining cut order if constrained: (a) R3-2 is the most compressible, its third paragraph (MLPerf tenure plus conservative-baseline) can go to two sentences, saving ~200; (b) R1-1a's artifact paragraph can compress to one sentence, saving ~80; (c) R1-2c can fold into R1-2d; (d) within R2-2 cut the GDR parenthetical. Do NOT cut: R2-3's decomposition (paragraphs 2 to 5), R2-1's TF32 correction, R3-2's opening title concession, or the 57% floor. If the limit is per-reviewer rather than total, only R3-2 and R2-3 need attention.
+11. **LENGTH: the paste-ready text is now ~4,130 words (~26,500 characters), which likely exceeds many rebuttal portals.** R1-1a was condensed 2026-07-25 (409 -> 332 words) after the MI300X ROCm addition, no content lost: both version sets, the cuDNN skew-direction argument, and the ROCm tag-drift catch all survive, only phrasing tightened. Exact per-block counts: R1-1a 332, R1-2a 205, R1-2c 192, R1-2d 297, R2-1 457, R2-2 418, R2-3 612, R2-4 209, R3-1 412, R3-2 845. Check the portal limit FIRST. Cut order if constrained: (a) R3-2 is the most compressible, its third paragraph (MLPerf tenure plus conservative-baseline) can go to two sentences, saving ~200; (b) R1-1a's final commitment paragraph (source/build system/logs) can compress to one sentence, saving ~50; (c) R1-2c can fold into R1-2d; (d) within R2-2 cut the GDR parenthetical. Do NOT cut: R2-3's decomposition (paragraphs 2 to 5), R2-1's TF32 correction, R3-2's opening title concession, R1-1a's version-skew disclosures (either vendor), or the 57% floor. If the limit is per-reviewer rather than total, only R3-2 and R2-3 need attention.
 12. **The 16.0 ms trap (new, know this before the discussion phase).** The step-time decomposition puts the native 26.7 ms single-GPU b32 step into the rebuttal, from which a reviewer can derive that the native trainer's entire cost of going to 8 GPUs across two InfiniBand nodes is 1.8 ms/step, while the rebuttal also quotes a 16.0 ms standalone all-reduce at the same message size and states the native trainer does not overlap. Those look irreconcilable. The reconciliation is that the standalone harness carries roughly 10 ms of its own overhead, visible in its implausible 10.3 ms for the same 102 MB over NVLink at 2 GPUs. R2-2 therefore labels 16.0 ms explicitly as a loose upper bound and uses it only as a bound. **Never add a sentence quoting exposed collective time for both stacks side by side**: it restates R2's fairness allegation using our own numbers ("your tuned NCCL is nine times faster on the same fabric"). If asked, the reply is that 16.0 ms is a torch.distributed measurement bounding the framework path, never an estimate of either stack's in-application cost, and that the comm-overlap A/B (+6.9% on native 8-GPU strong scaling, implying ~1.84 ms exposed) corroborates the native side independently. Hold that in reserve.
 13. **CUDA Graphs / torch.compile, updated posture.** Do not pre-empt it unprompted (it spends characters and plants the idea). If raised, the decomposition makes the reply strictly better: graph capture is a mechanism for reducing F while leaving s unchanged, which confirms the attribution rather than contradicting it. Do not commit to running it; adding graph capture to the DeepLearningExamples recipe before camera-ready is of unestablished feasibility.
 14. **Framing for the PC meeting.** As written, a PC member summarises this as "they wrote RN50 in CUDA and it beats PyTorch 1.62x", which is a comparison, and comparisons invite fairness objections (R2 filed three). The data supports a structurally immune framing: a reference that LOSES at 1 GPU (1,272 vs 1,489) and LOSES weak scaling (9.9k vs 10.6k) cannot be accused of being hand-favoured, and what it yields is a bound, not a boast. R2-3 and R1-2d now move that way; consider one sentence in the opening line repositioning the contribution as a measurement instrument. Also note the paper is not selling its second-strongest result: 88% strong-scaling efficiency at global batch 256 across two InfiniBand nodes, obtained with a deliberately unoptimized single blocking all-reduce.
-15. **R1-1a artifact release gate.** The second paragraph of R1-1a commits to releasing the native trainer source, build system, batch scripts, container digest plus image SHA-256, and per-run logs with extraction scripts. Confirm you are authorized to release all of these (advisor, institution, any code-ownership constraints) BEFORE pasting; if anything cannot be released, trim that item from the sentence rather than promising it. Also compute the two hashes when convenient: registry digest via the NGC catalog for the 24.02 tag, file hash via sha256sum on containers/nvidia-pytorch.sif.
+15. **R1-1a artifact release gate.** The commitment paragraph of R1-1a now covers BOTH vendors: native trainer source and build system, batch scripts, both container digests plus both image SHA-256 hashes, and per-run logs with extraction scripts. Confirm you are authorized to release all of these (advisor, institution, any code-ownership constraints, and separately for the AMD side if a different group or cluster owns `pytorch_rocm.sif`) BEFORE pasting; if anything cannot be released, trim that item from the sentence rather than promising it. Compute the four hashes when convenient: NGC registry digest for the 24.02 tag + `sha256sum` on `containers/nvidia-pytorch.sif`; ROCm registry digest for the `rocm/pytorch:latest` pull actually used (note: `:latest` is not itself a stable reference, record the digest it resolved to at build time, Jun 27) + `sha256sum` on `pytorch_rocm.sif`.
 16. R3-2 stance (revised after adversarial re-review): the block now OPENS with the accommodation (append "A ResNet-50 Case Study", scope abstract/conclusions to data-parallel CNN training) so a skimming reviewer reads acceptance, then justifies retaining the main title. The modularity argument is stated as a verifiable artifact property (architecture/harness separation exercised by the FC net and the HIP port), not as an untested "any CNN in a few lines" capability claim; verify the paper or artifact actually shows this structure. The MLPerf v4.1 retirement is now pre-empted head-on rather than left for the reviewer to find. R3-2 promises abstract/conclusions scoping: make sure the camera-ready actually does this, since the discussion phase will check. If the meta-review insists on stronger scoping, fall back to accepting title pattern 2. Optional run 5 (second CNN datapoint) would upgrade the generality argument from property to measurement.
