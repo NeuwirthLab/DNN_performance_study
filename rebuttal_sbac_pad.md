@@ -31,17 +31,10 @@ project: the runs behind the reported scaling numbers logged ROCm 7.2.2
 in-container, and it is that version, not the container's current 7.2.4, that
 the reported numbers reflect.
 
-Section IV will additionally give the driver version, compiler and build
-flags, and the complete launch command and environment for both stacks.
-Version strings alone do not make a run reproducible, so we commit to
-releasing the native trainer source and build system for both vendors, pinned
-to the exact commit used; the batch scripts for every reported experiment;
-both containers identified by registry digest and image SHA-256 rather than by
-their mutable tags, the fix the ROCm drift above calls for; and the per-run
-logs with the scripts that extract the plotted numbers.
 ----------------------
 
-Condense version 
+Condense version : 
+
 On H100, the native trainer uses CUDA 12.6.2, cuDNN 9.8.0, NCCL 2.18.5 (host); the framework baseline is NGC PyTorch 24.02 (PyTorch 2.3.0a0, CUDA 12.3, cuDNN 9.0.0, NCCL 2.20.3, DALI 1.34.0). The shared container does not pin the native trainer's math libraries — a skew disclosed rather than assumed away, and one that runs against the native result: its marginal cost is 0.703 ms/image on the newer cuDNN versus the framework's 0.672 ms on the older, so the library difference does not explain the reported gap. The same holds on MI300X: native ROCm 6.4 (HIP 6.4.43482, host) versus framework PyTorch 2.10.0+rocm7.2.4. Section IV will state both ROCm releases with their bundled MIOpen and RCCL versions. Because the framework container is pulled by the floating rocm/pytorch:latest tag, it advanced during the project; the reported scaling numbers reflect the logged in-container ROCm 7.2.2, not the current 7.2.4.
 
 ## R1-2a. "Why is the micro-benchmark performed on A100 and MI300X instead of H100 and MI300X?" (Section V)
